@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 
 
 // JWT Secret
-const jwtSecret = "51778657246321226641fsdklafjasdkljfsklfjd7148924065";
+const jwtSecret = process.env.JWT_SECRET;
 
 const UserSchema = new mongoose.Schema({
     email: {
@@ -47,6 +47,9 @@ UserSchema.methods.toJSON = function () {
 UserSchema.methods.generateAccessAuthToken = function () {
     const user = this;
     return new Promise((resolve, reject) => {
+        if (!jwtSecret) {
+            return reject(new Error('JWT_SECRET is not set'));
+        }
         // Create the JSON Web Token and return that
         jwt.sign({ _id: user._id.toHexString() }, jwtSecret, { expiresIn: "15m" }, (err, token) => {
             if (!err) {
@@ -92,6 +95,9 @@ UserSchema.methods.createSession = function () {
 /* MODEL METHODS (static methods) */
 
 UserSchema.statics.getJWTSecret = () => {
+    if (!jwtSecret) {
+        throw new Error('JWT_SECRET is not set');
+    }
     return jwtSecret;
 }
 
@@ -105,6 +111,14 @@ UserSchema.statics.findByIdAndToken = function (_id, token) {
 
     return User.findOne({
         _id,
+        'sessions.token': token
+    });
+}
+
+UserSchema.statics.findByToken = function (token) {
+    const User = this;
+
+    return User.findOne({
         'sessions.token': token
     });
 }
@@ -180,7 +194,7 @@ let saveSessionToDatabase = (user, refreshToken) => {
 }
 
 let generateRefreshTokenExpiryTime = () => {
-    let daysUntilExpire = "10";
+    let daysUntilExpire = 10;
     let secondsUntilExpire = ((daysUntilExpire * 24) * 60) * 60;
     return ((Date.now() / 1000) + secondsUntilExpire);
 }

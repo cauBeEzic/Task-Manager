@@ -9,35 +9,68 @@ const bodyParser = require('body-parser');
 const { List, Task, User } = require('./db/models');
 
 const jwt = require('jsonwebtoken');
+const _ = require('lodash');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
 
 
 /* MIDDLEWARE  */
 
 // Load middleware
 app.use(bodyParser.json());
+app.use(cookieParser());
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4200')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-// CORS HEADERS MIDDLEWARE
-app.use(function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS, PUT, PATCH, DELETE");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-access-token, x-refresh-token, _id");
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) {
+            return callback(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'x-access-token', 'X-XSRF-TOKEN'],
+    exposedHeaders: ['x-access-token']
+}));
 
-    res.header(
-        'Access-Control-Expose-Headers',
-        'x-access-token, x-refresh-token'
-    );
-
-    next();
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 25,
+    standardHeaders: true,
+    legacyHeaders: false
 });
+
+const validateRequest = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).send({ errors: errors.array() });
+    }
+    next();
+};
 
 
 // check whether the request has a valid JWT access token
 let authenticate = (req, res, next) => {
     let token = req.header('x-access-token');
+    let secret;
+    try {
+        secret = User.getJWTSecret();
+    } catch (e) {
+        return res.status(500).send({ error: 'JWT_SECRET is not configured' });
+    }
 
     // verify the JWT
-    jwt.verify(token, User.getJWTSecret(), (err, decoded) => {
+    jwt.verify(token, secret, (err, decoded) => {
         if (err) {
             // there was an error
             // jwt is invalid - * DO NOT AUTHENTICATE *
@@ -52,13 +85,13 @@ let authenticate = (req, res, next) => {
 
 // Verify Refresh Token Middleware (which will be verifying the session)
 let verifySession = (req, res, next) => {
-    // grab the refresh token from the request header
-    let refreshToken = req.header('x-refresh-token');
+    // grab the refresh token from the request cookie
+    let refreshToken = req.cookies['refreshToken'];
+    if (!refreshToken) {
+        return res.status(401).send({ error: 'Refresh token missing' });
+    }
 
-    // grab the _id from the request header
-    let _id = req.header('_id');
-
-    User.findByIdAndToken(_id, refreshToken).then((user) => {
+    User.findByToken(refreshToken).then((user) => {
         if (!user) {
             // user couldn't be found
             return Promise.reject({
@@ -101,6 +134,35 @@ let verifySession = (req, res, next) => {
     })
 }
 
+let verifyCsrf = (req, res, next) => {
+    const csrfCookie = req.cookies['XSRF-TOKEN'];
+    const csrfHeader = req.header('X-XSRF-TOKEN');
+    if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+        return res.status(403).send({ error: 'Invalid CSRF token' });
+    }
+    next();
+};
+
+let cryptoRandomString = (length) => {
+    const crypto = require('crypto');
+    return crypto.randomBytes(length).toString('hex');
+};
+
+let setAuthCookies = (res, refreshToken) => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        sameSite: 'strict',
+        secure: isProduction,
+        path: '/users/me/access-token'
+    });
+    res.cookie('XSRF-TOKEN', cryptoRandomString(32), {
+        httpOnly: false,
+        sameSite: 'strict',
+        secure: isProduction
+    });
+};
+
 /* END MIDDLEWARE  */
 
 
@@ -133,6 +195,9 @@ app.post('/lists', authenticate, (req, res) => {
     // We want to create a new list and return the new list document back to the user (which includes the id)
     // The list information (fields) will be passed in via the JSON request body
     let title = req.body.title;
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        return res.status(400).send({ error: 'Title is required' });
+    }
 
     let newList = new List({
         title,
@@ -141,6 +206,8 @@ app.post('/lists', authenticate, (req, res) => {
     newList.save().then((listDoc) => {
         // the full list document is returned (incl. id)
         res.send(listDoc);
+    }).catch((e) => {
+        res.status(500).send(e);
     })
 });
 
@@ -150,10 +217,19 @@ app.post('/lists', authenticate, (req, res) => {
  */
 app.patch('/lists/:id', authenticate, (req, res) => {
     // We want to update the specified list (list document with id in the URL) with the new values specified in the JSON body of the request
+    const updates = _.pick(req.body, ['title']);
+    if (updates.title && (typeof updates.title !== 'string' || updates.title.trim().length === 0)) {
+        return res.status(400).send({ error: 'Title must be a non-empty string' });
+    }
     List.findOneAndUpdate({ _id: req.params.id, _userId: req.user_id }, {
-        $set: req.body
-    }).then(() => {
+        $set: updates
+    }).then((listDoc) => {
+        if (!listDoc) {
+            return res.sendStatus(404);
+        }
         res.send({ 'message': 'updated successfully'});
+    }).catch((e) => {
+        res.status(500).send(e);
     });
 });
 
@@ -167,10 +243,15 @@ app.delete('/lists/:id', authenticate, (req, res) => {
         _id: req.params.id,
         _userId: req.user_id
     }).then((removedListDoc) => {
+        if (!removedListDoc) {
+            return res.sendStatus(404);
+        }
         res.send(removedListDoc);
 
         // delete all the tasks that are in the deleted list
         deleteTasksFromList(removedListDoc._id);
+    }).catch((e) => {
+        res.status(500).send(e);
     })
 });
 
@@ -181,11 +262,22 @@ app.delete('/lists/:id', authenticate, (req, res) => {
  */
 app.get('/lists/:listId/tasks', authenticate, (req, res) => {
     // We want to return all tasks that belong to a specific list (specified by listId)
-    Task.find({
-        _listId: req.params.listId
-    }).then((tasks) => {
-        res.send(tasks);
-    })
+    List.findOne({
+        _id: req.params.listId,
+        _userId: req.user_id
+    }).then((list) => {
+        if (!list) {
+            return res.sendStatus(404);
+        }
+
+        return Task.find({
+            _listId: req.params.listId
+        }).then((tasks) => {
+            res.send(tasks);
+        });
+    }).catch((e) => {
+        res.status(500).send(e);
+    });
 });
 
 
@@ -210,16 +302,23 @@ app.post('/lists/:listId/tasks', authenticate, (req, res) => {
         return false;
     }).then((canCreateTask) => {
         if (canCreateTask) {
+            if (!req.body.title || typeof req.body.title !== 'string' || req.body.title.trim().length === 0) {
+                return res.status(400).send({ error: 'Title is required' });
+            }
             let newTask = new Task({
                 title: req.body.title,
                 _listId: req.params.listId
             });
             newTask.save().then((newTaskDoc) => {
                 res.send(newTaskDoc);
+            }).catch((e) => {
+                res.status(500).send(e);
             })
         } else {
             res.sendStatus(404);
         }
+    }).catch((e) => {
+        res.status(500).send(e);
     })
 })
 
@@ -244,19 +343,30 @@ app.patch('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
         return false;
     }).then((canUpdateTasks) => {
         if (canUpdateTasks) {
+            const updates = _.pick(req.body, ['title', 'completed']);
+            if (updates.title && (typeof updates.title !== 'string' || updates.title.trim().length === 0)) {
+                return res.status(400).send({ error: 'Title must be a non-empty string' });
+            }
             // the currently authenticated user can update tasks
             Task.findOneAndUpdate({
                 _id: req.params.taskId,
                 _listId: req.params.listId
             }, {
-                    $set: req.body
+                    $set: updates
                 }
-            ).then(() => {
+            ).then((taskDoc) => {
+                if (!taskDoc) {
+                    return res.sendStatus(404);
+                }
                 res.send({ message: 'Updated successfully.' })
+            }).catch((e) => {
+                res.status(500).send(e);
             })
         } else {
             res.sendStatus(404);
         }
+    }).catch((e) => {
+        res.status(500).send(e);
     })
 });
 
@@ -285,11 +395,18 @@ app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
                 _id: req.params.taskId,
                 _listId: req.params.listId
             }).then((removedTaskDoc) => {
+                if (!removedTaskDoc) {
+                    return res.sendStatus(404);
+                }
                 res.send(removedTaskDoc);
+            }).catch((e) => {
+                res.status(500).send(e);
             })
         } else {
             res.sendStatus(404);
         }
+    }).catch((e) => {
+        res.status(500).send(e);
     });
 });
 
@@ -301,10 +418,13 @@ app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
  * POST /users
  * Purpose: Sign up
  */
-app.post('/users', (req, res) => {
+app.post('/users', authLimiter, [
+    body('email').isEmail().normalizeEmail(),
+    body('password').isString().isLength({ min: 8 })
+], validateRequest, (req, res) => {
     // User sign up
 
-    let body = req.body;
+    let body = _.pick(req.body, ['email', 'password']);
     let newUser = new User(body);
 
     newUser.save().then(() => {
@@ -319,8 +439,8 @@ app.post('/users', (req, res) => {
         });
     }).then((authTokens) => {
         // Now we construct and send the response to the user with their auth tokens in the header and the user object in the body
+        setAuthCookies(res, authTokens.refreshToken);
         res
-            .header('x-refresh-token', authTokens.refreshToken)
             .header('x-access-token', authTokens.accessToken)
             .send(newUser);
     }).catch((e) => {
@@ -333,7 +453,10 @@ app.post('/users', (req, res) => {
  * POST /users/login
  * Purpose: Login
  */
-app.post('/users/login', (req, res) => {
+app.post('/users/login', authLimiter, [
+    body('email').isEmail().normalizeEmail(),
+    body('password').isString().isLength({ min: 8 })
+], validateRequest, (req, res) => {
     let email = req.body.email;
     let password = req.body.password;
 
@@ -348,8 +471,8 @@ app.post('/users/login', (req, res) => {
             });
         }).then((authTokens) => {
             // Now we construct and send the response to the user with their auth tokens in the header and the user object in the body
+            setAuthCookies(res, authTokens.refreshToken);
             res
-                .header('x-refresh-token', authTokens.refreshToken)
                 .header('x-access-token', authTokens.accessToken)
                 .send(user);
         })
@@ -363,9 +486,10 @@ app.post('/users/login', (req, res) => {
  * GET /users/me/access-token
  * Purpose: generates and returns an access token
  */
-app.get('/users/me/access-token', verifySession, (req, res) => {
+app.post('/users/me/access-token', authLimiter, verifySession, verifyCsrf, (req, res) => {
     // we know that the user/caller is authenticated and we have the user_id and user object available to us
     req.userObject.generateAccessAuthToken().then((accessToken) => {
+        setAuthCookies(res, req.refreshToken);
         res.header('x-access-token', accessToken).send({ accessToken });
     }).catch((e) => {
         res.status(400).send(e);
