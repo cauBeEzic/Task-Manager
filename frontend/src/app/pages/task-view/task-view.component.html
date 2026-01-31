@@ -51,13 +51,13 @@
           </div>
           <div class="task-buttons">
 
-            <button class="button" [routerLink]="['/lists', selectedListId, 'edit-task', task._id]">
+            <button class="button" [routerLink]="['/lists', selectedListId, 'edit-task', task._id]" (click)="$event.stopPropagation()">
               <div class="icon">
                 <i class="fas fa-edit"></i>
               </div>
             </button>
 
-            <button class="button is-danger" (click)="onDeleteTaskClick(task._id)" style="margin-left: 10px;">
+            <button class="button is-danger" (click)="onDeleteTaskClick(task._id); $event.stopPropagation()" style="margin-left: 10px;">
               <div class="icon">
                 <i class="fas fa-trash"></i>
               </div>

@@ -10,6 +10,8 @@ import { shareReplay, tap } from 'rxjs/operators';
 })
 export class AuthService {
 
+  private accessToken: string | null = null;
+
   constructor(private webService: WebRequestService, private router: Router, private http: HttpClient) { }
 
   login(email: string, password: string) {
@@ -17,7 +19,7 @@ export class AuthService {
       shareReplay(),
       tap((res: HttpResponse<any>) => {
         // the auth tokens will be in the header of this response
-        this.setSession(res.body._id, res.headers.get('x-access-token'), res.headers.get('x-refresh-token'));
+        this.setAccessToken(res.headers.get('x-access-token'));
         console.log("LOGGED IN!");
       })
     )
@@ -29,7 +31,7 @@ export class AuthService {
       shareReplay(),
       tap((res: HttpResponse<any>) => {
         // the auth tokens will be in the header of this response
-        this.setSession(res.body._id, res.headers.get('x-access-token'), res.headers.get('x-refresh-token'));
+        this.setAccessToken(res.headers.get('x-access-token'));
         console.log("Successfully signed up and now logged in!");
       })
     )
@@ -38,46 +40,23 @@ export class AuthService {
 
 
   logout() {
-    this.removeSession();
+    this.accessToken = null;
 
     this.router.navigate(['/login']);
   }
 
   getAccessToken() {
-    return localStorage.getItem('x-access-token');
-  }
-
-  getRefreshToken() {
-    return localStorage.getItem('x-refresh-token');
-  }
-
-  getUserId() {
-    return localStorage.getItem('user-id');
+    return this.accessToken;
   }
 
   setAccessToken(accessToken: string) {
-    localStorage.setItem('x-access-token', accessToken)
-  }
-  
-  private setSession(userId: string, accessToken: string, refreshToken: string) {
-    localStorage.setItem('user-id', userId);
-    localStorage.setItem('x-access-token', accessToken);
-    localStorage.setItem('x-refresh-token', refreshToken);
-  }
-
-  private removeSession() {
-    localStorage.removeItem('user-id');
-    localStorage.removeItem('x-access-token');
-    localStorage.removeItem('x-refresh-token');
+    this.accessToken = accessToken;
   }
 
   getNewAccessToken() {
-    return this.http.get(`${this.webService.ROOT_URL}/users/me/access-token`, {
-      headers: {
-        'x-refresh-token': this.getRefreshToken(),
-        '_id': this.getUserId()
-      },
-      observe: 'response'
+    return this.http.post(`${this.webService.ROOT_URL}/users/me/access-token`, {}, {
+      observe: 'response',
+      withCredentials: true
     }).pipe(
       tap((res: HttpResponse<any>) => {
         this.setAccessToken(res.headers.get('x-access-token'));
