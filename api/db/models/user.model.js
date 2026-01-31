@@ -123,6 +123,14 @@ UserSchema.statics.findByToken = function (token) {
     });
 }
 
+UserSchema.statics.removeToken = function (token) {
+    const User = this;
+    return User.updateOne(
+        { 'sessions.token': token },
+        { $pull: { sessions: { token } } }
+    );
+}
+
 
 UserSchema.statics.findByCredentials = function (email, password) {
     let User = this;

@@ -15,6 +15,8 @@ const ListSchema = new mongoose.Schema({
 
 })
 
+ListSchema.index({ _userId: 1 });
+
 const List = mongoose.model('List', ListSchema);
 
 module.exports = { List }

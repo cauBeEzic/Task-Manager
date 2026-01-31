@@ -61,7 +61,7 @@ export class WebReqInterceptor implements HttpInterceptor {
       return this.authService.getNewAccessToken().pipe(
         tap(() => {
           console.log("Access Token Refreshed!");
-          this.accessTokenRefreshed.next();
+          this.accessTokenRefreshed.next(null);
         }),
         finalize(() => {
           this.refreshingAccessToken = false;
@@ -75,16 +75,34 @@ export class WebReqInterceptor implements HttpInterceptor {
   addAuthHeader(request: HttpRequest<any>) {
     // get the access token
     const token = this.authService.getAccessToken();
+    const csrfToken = this.getCookie('XSRF-TOKEN');
 
     if (token) {
       // append the access token to the request header
       return request.clone({
         setHeaders: {
-          'x-access-token': token
+          'x-access-token': token,
+          ...(csrfToken ? { 'X-XSRF-TOKEN': csrfToken } : {})
+        }
+      })
+    }
+    if (csrfToken) {
+      return request.clone({
+        setHeaders: {
+          'X-XSRF-TOKEN': csrfToken
         }
       })
     }
     return request;
+  }
+
+  private getCookie(name: string) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+      return parts.pop()?.split(';').shift() || null;
+    }
+    return null;
   }
 
 }

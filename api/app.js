@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 
@@ -14,12 +15,14 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
+const helmet = require('helmet');
 
 
 /* MIDDLEWARE  */
 
 // Load middleware
-app.use(bodyParser.json());
+app.use(helmet());
+app.use(bodyParser.json({ limit: '1mb' }));
 app.use(cookieParser());
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4200')
@@ -150,16 +153,18 @@ let cryptoRandomString = (length) => {
 
 let setAuthCookies = (res, refreshToken) => {
     const isProduction = process.env.NODE_ENV === 'production';
+    const sameSite = process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax');
+    const secure = sameSite === 'none' ? true : isProduction;
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        sameSite: 'strict',
-        secure: isProduction,
+        sameSite,
+        secure,
         path: '/users/me/access-token'
     });
     res.cookie('XSRF-TOKEN', cryptoRandomString(32), {
         httpOnly: false,
-        sameSite: 'strict',
-        secure: isProduction
+        sameSite,
+        secure
     });
 };
 
@@ -216,6 +221,9 @@ app.post('/lists', authenticate, (req, res) => {
  * Purpose: Update a specified list
  */
 app.patch('/lists/:id', authenticate, (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).send({ error: 'Invalid list id' });
+    }
     // We want to update the specified list (list document with id in the URL) with the new values specified in the JSON body of the request
     const updates = _.pick(req.body, ['title']);
     if (updates.title && (typeof updates.title !== 'string' || updates.title.trim().length === 0)) {
@@ -238,6 +246,9 @@ app.patch('/lists/:id', authenticate, (req, res) => {
  * Purpose: Delete a list
  */
 app.delete('/lists/:id', authenticate, (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).send({ error: 'Invalid list id' });
+    }
     // We want to delete the specified list (document with id in the URL)
     List.findOneAndRemove({
         _id: req.params.id,
@@ -262,6 +273,9 @@ app.delete('/lists/:id', authenticate, (req, res) => {
  */
 app.get('/lists/:listId/tasks', authenticate, (req, res) => {
     // We want to return all tasks that belong to a specific list (specified by listId)
+    if (!mongoose.Types.ObjectId.isValid(req.params.listId)) {
+        return res.status(400).send({ error: 'Invalid list id' });
+    }
     List.findOne({
         _id: req.params.listId,
         _userId: req.user_id
@@ -287,6 +301,9 @@ app.get('/lists/:listId/tasks', authenticate, (req, res) => {
  */
 app.post('/lists/:listId/tasks', authenticate, (req, res) => {
     // We want to create a new task in a list specified by listId
+    if (!mongoose.Types.ObjectId.isValid(req.params.listId)) {
+        return res.status(400).send({ error: 'Invalid list id' });
+    }
 
     List.findOne({
         _id: req.params.listId,
@@ -328,6 +345,9 @@ app.post('/lists/:listId/tasks', authenticate, (req, res) => {
  */
 app.patch('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
     // We want to update an existing task (specified by taskId)
+    if (!mongoose.Types.ObjectId.isValid(req.params.listId) || !mongoose.Types.ObjectId.isValid(req.params.taskId)) {
+        return res.status(400).send({ error: 'Invalid list or task id' });
+    }
 
     List.findOne({
         _id: req.params.listId,
@@ -375,6 +395,9 @@ app.patch('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
  * Purpose: Delete a task
  */
 app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.listId) || !mongoose.Types.ObjectId.isValid(req.params.taskId)) {
+        return res.status(400).send({ error: 'Invalid list or task id' });
+    }
 
     List.findOne({
         _id: req.params.listId,
@@ -496,6 +519,19 @@ app.post('/users/me/access-token', authLimiter, verifySession, verifyCsrf, (req,
     });
 })
 
+/**
+ * POST /users/logout
+ * Purpose: logout and revoke refresh token
+ */
+app.post('/users/logout', authLimiter, verifySession, verifyCsrf, (req, res) => {
+    User.removeToken(req.refreshToken).then(() => {
+        res.clearCookie('refreshToken', { path: '/users/me/access-token' });
+        res.clearCookie('XSRF-TOKEN');
+        res.send({ message: 'Logged out' });
+    }).catch((e) => {
+        res.status(400).send(e);
+    });
+})
 
 
 /* HELPER METHODS */

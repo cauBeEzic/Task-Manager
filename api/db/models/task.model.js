@@ -17,6 +17,8 @@ const TaskSchema = new mongoose.Schema({
     }
 })
 
+TaskSchema.index({ _listId: 1 });
+
 const Task = mongoose.model('Task', TaskSchema);
 
 module.exports = { Task }

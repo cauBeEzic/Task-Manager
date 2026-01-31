@@ -41,8 +41,17 @@ export class AuthService {
 
   logout() {
     this.accessToken = null;
-
     this.router.navigate(['/login']);
+  }
+
+  logoutRequest() {
+    return this.http.post(`${this.webService.ROOT_URL}/users/logout`, {}, {
+      withCredentials: true
+    }).pipe(
+      tap(() => {
+        this.logout();
+      })
+    );
   }
 
   getAccessToken() {
