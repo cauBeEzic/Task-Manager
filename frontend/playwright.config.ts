@@ -11,9 +11,9 @@ export default defineConfig({
   webServer: [
     {
       command: 'node ../api/app.js',
-      url: 'http://localhost:3000',
+      url: 'http://localhost:3000/lists',
       reuseExistingServer: true,
-      timeout: 120 * 1000,
+      timeout: 300 * 1000,
       env: {
         JWT_SECRET: process.env.JWT_SECRET || 'dev-secret',
         MONGO_URI: process.env.MONGO_URI || 'mongodb://localhost:27017/TaskManager'
@@ -23,7 +23,7 @@ export default defineConfig({
       command: 'npm run start',
       url: frontendUrl,
       reuseExistingServer: true,
-      timeout: 120 * 1000
+      timeout: 300 * 1000
     }
   ]
 });

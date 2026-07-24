@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { TaskService } from 'src/app/task.service';
 import { Router } from '@angular/router';
 import { List } from 'src/app/models/list.model';
@@ -8,12 +8,9 @@ import { List } from 'src/app/models/list.model';
   templateUrl: './new-list.component.html',
   styleUrls: ['./new-list.component.scss']
 })
-export class NewListComponent implements OnInit {
+export class NewListComponent {
 
   constructor(private taskService: TaskService, private router: Router) { }
-
-  ngOnInit() {
-  }
 
   createList(title: string) {
     this.taskService.createList(title).subscribe((list: List) => {
