@@ -1,0 +1,44 @@
+.sync-status {
+  position: fixed;
+  z-index: 20;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #e9fff8;
+  color: #075d4d;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #27d7a1;
+}
+
+.offline {
+  background: #fff6d6;
+  color: #6b5200;
+
+  .status-dot { background: #f4b400; }
+}
+
+.failed {
+  border: 1px solid #ffb6b6;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: white;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+}

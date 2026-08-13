@@ -17,7 +17,34 @@ module.exports = function (config) {
       },
       coverageReporter: {
         dir: require('path').join(__dirname, '../coverage'),
-        reports: ['html', 'lcovonly', 'text-summary'],
+        reporters: [
+          { type: 'html' },
+          { type: 'lcovonly', subdir: '.', file: 'lcov.info' },
+          { type: 'text-summary' }
+        ],
+        check: {
+          emitWarning: false,
+          each: {
+            statements: 0,
+            branches: 0,
+            functions: 0,
+            lines: 0,
+            overrides: {
+              '**/app/offline/sync.service.ts': {
+                statements: 100,
+                branches: 100,
+                functions: 100,
+                lines: 100
+              },
+              '**/app/offline/offline-db.service.ts': {
+                statements: 100,
+                branches: 100,
+                functions: 100,
+                lines: 100
+              }
+            }
+          }
+        }
       },
       reporters: ['progress', 'kjhtml', 'coverage'],
       port: 9876,

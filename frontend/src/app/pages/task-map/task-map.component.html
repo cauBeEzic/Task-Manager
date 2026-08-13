@@ -1,0 +1,31 @@
+<div class="map-page">
+  <aside class="map-panel">
+    <a class="back-link" [routerLink]="['/lists', listId]">← Back to tasks</a>
+    <h1 class="title has-text-primary">Task map</h1>
+    <p class="help-text">Pins are clustered when you zoom out. Device proximity is checked only while this page is open.</p>
+
+    <label class="label" for="map-task">Task</label>
+    <div class="select is-fullwidth">
+      <select id="map-task" [(ngModel)]="selectedTaskId" (change)="onTaskSelected()">
+        <option value="">Choose a task</option>
+        <option *ngFor="let task of tasks" [value]="task._id">{{ task.title }}</option>
+      </select>
+    </div>
+
+    <label class="label radius-label" for="radius">Proximity radius (metres)</label>
+    <input id="radius" class="input" type="number" min="25" max="5000" [(ngModel)]="radiusMeters">
+
+    <div class="buttons map-actions">
+      <button class="button is-primary" [disabled]="!selectedTask || !draftCoordinates" (click)="saveLocation()">Save location</button>
+      <button class="button" [disabled]="!selectedTask?.location" (click)="guideToSelected()">Guide me</button>
+    </div>
+
+    <div class="proximity" *ngIf="selectedTask?.location">
+      <strong>{{ distanceTo(selectedTask!) }}</strong>
+      <span *ngIf="isInsideRadius(selectedTask!)" class="inside">Inside task radius</span>
+      <span *ngIf="userPosition && !isInsideRadius(selectedTask!)">Outside task radius</span>
+    </div>
+    <p class="map-message">{{ mapMessage }}</p>
+  </aside>
+  <div id="task-map" class="map-canvas" aria-label="Map showing task locations"></div>
+</div>

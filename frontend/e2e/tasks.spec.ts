@@ -33,6 +33,45 @@ test('creates a task in an owned list', async ({ request }) => {
   });
 });
 
+test('stores task locations and safely replays an idempotent create', async ({ request }) => {
+  const { accessToken } = await signUp(request, uniqueEmail('located-task'));
+  const headers = {
+    ...accessTokenHeaders(accessToken),
+    'X-Idempotency-Key': `create-located-${Date.now()}`
+  };
+
+  const listResponse = await request.post(`${API_URL}/lists`, {
+    headers: accessTokenHeaders(accessToken),
+    data: { title: 'Mapped tasks' }
+  });
+  const list = await listResponse.json();
+  const payload = {
+    title: 'Meet the client',
+    location: { type: 'Point', coordinates: [-123.1207, 49.2827] },
+    address: 'Vancouver, BC',
+    geofenceRadiusMeters: 150
+  };
+
+  const first = await request.post(`${API_URL}/lists/${list._id}/tasks`, { headers, data: payload });
+  expect(first.status(), await first.text()).toBe(200);
+  const firstTask = await first.json();
+
+  const replay = await request.post(`${API_URL}/lists/${list._id}/tasks`, { headers, data: payload });
+  expect(replay.status(), await replay.text()).toBe(200);
+  expect(replay.headers()['x-idempotent-replay']).toBe('true');
+  expect((await replay.json())._id).toBe(firstTask._id);
+
+  const tasksResponse = await request.get(`${API_URL}/lists/${list._id}/tasks`, {
+    headers: accessTokenHeaders(accessToken)
+  });
+  const tasks = await tasksResponse.json();
+  expect(tasks).toHaveLength(1);
+  expect(tasks[0]).toMatchObject({
+    location: { type: 'Point', coordinates: [-123.1207, 49.2827] },
+    geofenceRadiusMeters: 150
+  });
+});
+
 test('edits and deletes a task', async ({ request }) => {
   const { accessToken } = await signUp(request, uniqueEmail('edit-task'));
   const headers = accessTokenHeaders(accessToken);

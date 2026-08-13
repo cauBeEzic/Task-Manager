@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpInterceptor, HttpRequest, HttpHandler, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError, EMPTY, Subject } from 'rxjs';
+import { Observable, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
-import { catchError, tap, switchMap, finalize, take } from 'rxjs/operators';
+import { catchError, tap, switchMap, finalize, shareReplay } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
@@ -11,9 +11,7 @@ export class WebReqInterceptor implements HttpInterceptor {
 
   constructor(private authService: AuthService) { }
 
-  refreshingAccessToken = false;
-
-  accessTokenRefreshed: Subject<any> = new Subject();
+  private refreshRequest?: Observable<any>;
 
 
   intercept(request: HttpRequest<any>, next: HttpHandler): Observable<any> {
@@ -27,7 +25,7 @@ export class WebReqInterceptor implements HttpInterceptor {
 
         if (error.status === 401) {
           if (request.url.includes('/users/me/access-token')) {
-            this.authService.logout();
+            this.authService.lock();
             return throwError(error);
           }
           // 401 error so we are unauthorized
@@ -41,8 +39,8 @@ export class WebReqInterceptor implements HttpInterceptor {
               }),
               catchError((err: any) => {
                 console.log(err);
-                this.authService.logout();
-                return EMPTY;
+                this.authService.lock();
+                return throwError(err);
               })
             )
         }
@@ -53,22 +51,18 @@ export class WebReqInterceptor implements HttpInterceptor {
   }
 
   refreshAccessToken() {
-    if (this.refreshingAccessToken) {
-      return this.accessTokenRefreshed.pipe(take(1));
-    } else {
-      this.refreshingAccessToken = true;
-      // we want to call a method in the auth service to send a request to refresh the access token
-      return this.authService.getNewAccessToken().pipe(
+    if (!this.refreshRequest) {
+      this.refreshRequest = this.authService.getNewAccessToken().pipe(
         tap(() => {
           console.log("Access Token Refreshed!");
-          this.accessTokenRefreshed.next(null);
         }),
         finalize(() => {
-          this.refreshingAccessToken = false;
-        })
-      )
+          this.refreshRequest = undefined;
+        }),
+        shareReplay({ bufferSize: 1, refCount: false })
+      );
     }
-    
+    return this.refreshRequest;
   }
 
 

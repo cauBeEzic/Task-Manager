@@ -24,6 +24,10 @@
           <h1 class="title has-text-primary">
             Tasks
           </h1>
+          <a class="button is-light map-button" [routerLink]="['/lists', selectedListId, 'map']">
+            <span class="icon"><i class="fas fa-map-marked-alt"></i></span>
+            <span>Map</span>
+          </a>
           <div class="dropdown is-hoverable is-right">
             <div class="dropdown-trigger">
               <button class="button" aria-haspopup="true" aria-controls="dropdown-menu4">
@@ -49,6 +53,16 @@
         <div class="task" *ngFor="let task of tasks" (click)="onTaskClick(task)" [ngClass]="{ 'completed': task.completed }">
           <div class="task-text">
             <p>{{ task.title }}</p>
+            <span class="sync-chip" *ngIf="task._syncState && task._syncState !== 'confirmed'"
+              [class.is-error]="task._syncState === 'failed'" [title]="task._syncError || ''">
+              <i class="fas" [ngClass]="{
+                'fa-clock': task._syncState === 'queued',
+                'fa-spinner fa-spin': task._syncState === 'pending' || task._syncState === 'retrying',
+                'fa-exclamation-triangle': task._syncState === 'failed'
+              }"></i>
+              {{ task._syncState }}
+            </span>
+            <span class="location-chip" *ngIf="task.location" title="Task has a location"><i class="fas fa-map-marker-alt"></i></span>
           </div>
           <div class="task-buttons">
 

@@ -1,0 +1,18 @@
+{
+  "name": "Field Task Manager",
+  "short_name": "Field Tasks",
+  "description": "An offline-first, location-aware task manager.",
+  "theme_color": "#27d7a1",
+  "background_color": "#f8f8f8",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/lists",
+  "icons": [
+    {
+      "src": "assets/task-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

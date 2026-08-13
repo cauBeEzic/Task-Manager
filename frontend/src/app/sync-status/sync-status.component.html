@@ -1,0 +1,11 @@
+<div class="sync-status" *ngIf="summary$ | async as summary"
+  [class.offline]="!summary.online" [class.failed]="summary.failed > 0">
+  <span class="status-dot"></span>
+  <span *ngIf="!summary.online">Offline — changes will sync when you reconnect</span>
+  <span *ngIf="summary.online && summary.pending > 0">Sending {{ summary.pending }} change{{ summary.pending === 1 ? '' : 's' }}…</span>
+  <span *ngIf="summary.online && summary.retrying > 0">Retrying {{ summary.retrying }} change{{ summary.retrying === 1 ? '' : 's' }}…</span>
+  <span *ngIf="summary.online && summary.queued > 0 && summary.pending === 0">{{ summary.queued }} change{{ summary.queued === 1 ? '' : 's' }} queued</span>
+  <span *ngIf="summary.failed > 0">{{ summary.failed }} change{{ summary.failed === 1 ? '' : 's' }} failed</span>
+  <button *ngIf="summary.failed > 0" type="button" (click)="retry()">Retry</button>
+  <button *ngIf="summary.online && summary.queued > 0" type="button" (click)="sync()">Sync now</button>
+</div>

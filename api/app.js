@@ -7,7 +7,7 @@ const { mongoose } = require('./db/mongoose');
 const bodyParser = require('body-parser');
 
 // Load in the mongoose models
-const { List, Task, User } = require('./db/models');
+const { List, Task, User, ActionReceipt } = require('./db/models');
 
 const jwt = require('jsonwebtoken');
 const _ = require('lodash');
@@ -16,6 +16,7 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const helmet = require('helmet');
+const { decideReceipt } = require('./idempotency');
 
 
 /* MIDDLEWARE  */
@@ -42,8 +43,8 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'x-access-token', 'X-XSRF-TOKEN'],
-    exposedHeaders: ['x-access-token']
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'x-access-token', 'X-XSRF-TOKEN', 'X-Idempotency-Key'],
+    exposedHeaders: ['x-access-token', 'X-Idempotent-Replay']
 }));
 
 const authLimiter = rateLimit({
@@ -146,6 +147,100 @@ let verifyCsrf = (req, res, next) => {
     next();
 };
 
+const replayOrRecordAction = async (req, res, next) => {
+    const operationId = req.header('X-Idempotency-Key');
+    if (!operationId) {
+        return next();
+    }
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(operationId)) {
+        return res.status(400).send({ error: 'Invalid idempotency key' });
+    }
+
+    try {
+        const receipt = await ActionReceipt.findOne({ _userId: req.user_id, operationId });
+        const decision = decideReceipt(receipt, req.method, req.originalUrl);
+        if (decision.type === 'conflict') {
+            return res.status(409).send({ error: 'Idempotency key was already used for a different action' });
+        }
+        if (decision.type === 'pending') {
+            return res.status(425).header('Retry-After', '1').send({ error: 'The original action is still pending' });
+        }
+        if (decision.type === 'replay') {
+            return res
+                .status(decision.statusCode)
+                .header('X-Idempotent-Replay', 'true')
+                .send(decision.responseBody);
+        }
+
+        if (decision.type === 'reclaim') {
+            await ActionReceipt.updateOne({ _userId: req.user_id, operationId }, {
+                $set: { state: 'pending', updatedAt: new Date() },
+                $unset: { statusCode: 1, responseBody: 1 }
+            });
+            req.idempotencyRecovery = true;
+        } else {
+            try {
+                await ActionReceipt.create({
+                    _userId: req.user_id,
+                    operationId,
+                    method: req.method,
+                    path: req.originalUrl,
+                    state: 'pending'
+                });
+            } catch (error) {
+                if (error.code === 11000) {
+                    return res.status(425).header('Retry-After', '1').send({ error: 'The original action is still pending' });
+                }
+                throw error;
+            }
+        }
+        req.operationId = operationId;
+
+        const originalSend = res.send.bind(res);
+        let recorded = false;
+        res.send = (body) => {
+            if (!recorded) {
+                recorded = true;
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    const responseBody = body && typeof body.toObject === 'function' ? body.toObject() : body;
+                    ActionReceipt.updateOne({ _userId: req.user_id, operationId }, {
+                        $set: { state: 'confirmed', statusCode: res.statusCode, responseBody }
+                    }).catch((error) => console.error('Unable to confirm action receipt', error))
+                        .finally(() => originalSend(body));
+                } else {
+                    ActionReceipt.deleteOne({ _userId: req.user_id, operationId })
+                        .catch((error) => console.error('Unable to release action receipt', error))
+                        .finally(() => originalSend(body));
+                }
+                return res;
+            }
+            return originalSend(body);
+        };
+        next();
+    } catch (error) {
+        res.status(500).send({ error: 'Unable to verify action state' });
+    }
+};
+
+const parseLocation = (location) => {
+    if (location === undefined) {
+        return undefined;
+    }
+    if (location === null) {
+        return null;
+    }
+    const coordinates = location.coordinates;
+    if (!location || location.type !== 'Point' || !Array.isArray(coordinates) || coordinates.length !== 2) {
+        throw new Error('Location must be a GeoJSON Point');
+    }
+    const longitude = Number(coordinates[0]);
+    const latitude = Number(coordinates[1]);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
+        throw new Error('Location coordinates are invalid');
+    }
+    return { type: 'Point', coordinates: [longitude, latitude] };
+};
+
 let cryptoRandomString = (length) => {
     const crypto = require('crypto');
     return crypto.randomBytes(length).toString('hex');
@@ -159,7 +254,7 @@ let setAuthCookies = (res, refreshToken) => {
         httpOnly: true,
         sameSite,
         secure,
-        path: '/users/me/access-token'
+        path: '/'
     });
     res.cookie('XSRF-TOKEN', cryptoRandomString(32), {
         httpOnly: false,
@@ -299,7 +394,7 @@ app.get('/lists/:listId/tasks', authenticate, (req, res) => {
  * POST /lists/:listId/tasks
  * Purpose: Create a new task in a specific list
  */
-app.post('/lists/:listId/tasks', authenticate, (req, res) => {
+app.post('/lists/:listId/tasks', authenticate, replayOrRecordAction, (req, res) => {
     // We want to create a new task in a list specified by listId
     if (!mongoose.Types.ObjectId.isValid(req.params.listId)) {
         return res.status(400).send({ error: 'Invalid list id' });
@@ -322,13 +417,31 @@ app.post('/lists/:listId/tasks', authenticate, (req, res) => {
             if (!req.body.title || typeof req.body.title !== 'string' || req.body.title.trim().length === 0) {
                 return res.status(400).send({ error: 'Title is required' });
             }
+            let location;
+            try {
+                location = parseLocation(req.body.location);
+            } catch (error) {
+                return res.status(400).send({ error: error.message });
+            }
             let newTask = new Task({
                 title: req.body.title,
-                _listId: req.params.listId
+                _listId: req.params.listId,
+                ...(location ? { location } : {}),
+                ...(typeof req.body.address === 'string' ? { address: req.body.address } : {}),
+                ...(req.body.geofenceRadiusMeters !== undefined ? { geofenceRadiusMeters: req.body.geofenceRadiusMeters } : {}),
+                ...(req.operationId ? { operationId: req.operationId } : {})
             });
             newTask.save().then((newTaskDoc) => {
                 res.send(newTaskDoc);
             }).catch((e) => {
+                if (e.code === 11000 && req.operationId) {
+                    return Task.findOne({ operationId: req.operationId, _listId: req.params.listId }).then((existingTask) => {
+                        if (existingTask) {
+                            return res.send(existingTask);
+                        }
+                        res.status(409).send({ error: 'Operation id is already in use' });
+                    });
+                }
                 res.status(500).send(e);
             })
         } else {
@@ -343,7 +456,7 @@ app.post('/lists/:listId/tasks', authenticate, (req, res) => {
  * PATCH /lists/:listId/tasks/:taskId
  * Purpose: Update an existing task
  */
-app.patch('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
+app.patch('/lists/:listId/tasks/:taskId', authenticate, replayOrRecordAction, (req, res) => {
     // We want to update an existing task (specified by taskId)
     if (!mongoose.Types.ObjectId.isValid(req.params.listId) || !mongoose.Types.ObjectId.isValid(req.params.taskId)) {
         return res.status(400).send({ error: 'Invalid list or task id' });
@@ -363,22 +476,32 @@ app.patch('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
         return false;
     }).then((canUpdateTasks) => {
         if (canUpdateTasks) {
-            const updates = _.pick(req.body, ['title', 'completed']);
+            const updates = _.pick(req.body, ['title', 'completed', 'address', 'geofenceRadiusMeters']);
             if (updates.title && (typeof updates.title !== 'string' || updates.title.trim().length === 0)) {
                 return res.status(400).send({ error: 'Title must be a non-empty string' });
+            }
+            try {
+                const location = parseLocation(req.body.location);
+                if (location !== undefined) {
+                    updates.location = location;
+                }
+            } catch (error) {
+                return res.status(400).send({ error: error.message });
             }
             // the currently authenticated user can update tasks
             Task.findOneAndUpdate({
                 _id: req.params.taskId,
                 _listId: req.params.listId
             }, {
-                    $set: updates
-                }
+                    $set: updates,
+                    $inc: { syncVersion: 1 }
+                },
+                { new: true, runValidators: true }
             ).then((taskDoc) => {
                 if (!taskDoc) {
                     return res.sendStatus(404);
                 }
-                res.send({ message: 'Updated successfully.' })
+                res.send(taskDoc)
             }).catch((e) => {
                 res.status(500).send(e);
             })
@@ -394,7 +517,7 @@ app.patch('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
  * DELETE /lists/:listId/tasks/:taskId
  * Purpose: Delete a task
  */
-app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
+app.delete('/lists/:listId/tasks/:taskId', authenticate, replayOrRecordAction, (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.listId) || !mongoose.Types.ObjectId.isValid(req.params.taskId)) {
         return res.status(400).send({ error: 'Invalid list or task id' });
     }
@@ -419,6 +542,9 @@ app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
                 _listId: req.params.listId
             }).then((removedTaskDoc) => {
                 if (!removedTaskDoc) {
+                    if (req.idempotencyRecovery) {
+                        return res.send({ _id: req.params.taskId, deleted: true });
+                    }
                     return res.sendStatus(404);
                 }
                 res.send(removedTaskDoc);
@@ -525,7 +651,7 @@ app.post('/users/me/access-token', authLimiter, verifySession, verifyCsrf, (req,
  */
 app.post('/users/logout', authLimiter, verifySession, verifyCsrf, (req, res) => {
     User.removeToken(req.refreshToken).then(() => {
-        res.clearCookie('refreshToken', { path: '/users/me/access-token' });
+        res.clearCookie('refreshToken', { path: '/' });
         res.clearCookie('XSRF-TOKEN');
         res.send({ message: 'Logged out' });
     }).catch((e) => {
@@ -546,6 +672,11 @@ let deleteTasksFromList = (_listId) => {
 
 
 
-app.listen(3000, () => {
-    console.log("Server is listening on port 3000");
-})
+if (require.main === module) {
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+        console.log(`Server is listening on port ${port}`);
+    });
+}
+
+module.exports = app;

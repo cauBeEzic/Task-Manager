@@ -1,25 +1,15 @@
-import { async, ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { of } from 'rxjs';
 import { NewListComponent } from './new-list.component';
 
 describe('NewListComponent', () => {
-  let component: NewListComponent;
-  let fixture: ComponentFixture<NewListComponent>;
+  it('creates a list and navigates to it', () => {
+    const tasks = { createList: jasmine.createSpy('createList').and.returnValue(of({ _id: 'list-1' })) };
+    const router = { navigate: jasmine.createSpy('navigate') };
+    const component = new NewListComponent(tasks as any, router as any);
 
-  beforeEach(async(() => {
-    TestBed.configureTestingModule({
-      declarations: [ NewListComponent ]
-    })
-    .compileComponents();
-  }));
+    component.createList('List');
 
-  beforeEach(() => {
-    fixture = TestBed.createComponent(NewListComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
+    expect(tasks.createList).toHaveBeenCalledOnceWith('List');
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/lists', 'list-1']);
   });
 });

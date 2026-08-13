@@ -1,16 +1,23 @@
-import { TestBed } from '@angular/core/testing';
-
 import { WebRequestService } from './web-request.service';
 
 describe('WebRequestService', () => {
-  let service: WebRequestService;
+  it('constructs authenticated API requests', () => {
+    const http = {
+      get: jasmine.createSpy('get'), post: jasmine.createSpy('post'),
+      patch: jasmine.createSpy('patch'), delete: jasmine.createSpy('delete')
+    };
+    const service = new WebRequestService(http as any);
 
-  beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(WebRequestService);
-  });
+    service.get('lists');
+    service.post('lists', { title: 'x' });
+    service.patch('lists/1', { title: 'y' });
+    service.delete('lists/1');
+    service.login('a@example.com', 'password');
+    service.signup('a@example.com', 'password');
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
+    expect(http.get).toHaveBeenCalled();
+    expect(http.patch).toHaveBeenCalled();
+    expect(http.delete).toHaveBeenCalled();
+    expect(http.post).toHaveBeenCalledTimes(3);
   });
 });

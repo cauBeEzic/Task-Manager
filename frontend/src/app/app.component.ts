@@ -1,4 +1,6 @@
 import { Component } from '@angular/core';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -6,5 +8,17 @@ import { Component } from '@angular/core';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  title = 'frontend';
+  title = 'Field Tasks';
+
+  constructor(updates: SwUpdate) {
+    if (updates.isEnabled) {
+      updates.versionUpdates.pipe(
+        filter((event): event is VersionReadyEvent => event.type === 'VERSION_READY')
+      ).subscribe(() => {
+        if (window.confirm('A new version of Field Tasks is ready. Reload now?')) {
+          updates.activateUpdate().then(() => document.location.reload());
+        }
+      });
+    }
+  }
 }
