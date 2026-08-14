@@ -1,4 +1,5 @@
-import { BehaviorSubject, firstValueFrom, Subject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom, of, Subject } from 'rxjs';
+import { List } from './models/list.model';
 import { Task } from './models/task.model';
 import { TaskService } from './task.service';
 
@@ -13,6 +14,8 @@ describe('TaskService offline mutations', () => {
     web = {};
     db = {
       changes$: new Subject(),
+      getLists: jasmine.createSpy('getLists').and.returnValue(Promise.resolve([])),
+      replaceLists: jasmine.createSpy('replaceLists').and.returnValue(Promise.resolve()),
       getTask: jasmine.createSpy('getTask').and.returnValue(Promise.resolve(existing)),
       putTask: jasmine.createSpy('putTask').and.returnValue(Promise.resolve()),
       deleteTask: jasmine.createSpy('deleteTask').and.returnValue(Promise.resolve())
@@ -24,6 +27,18 @@ describe('TaskService offline mutations', () => {
       retryFailed: jasmine.createSpy('retryFailed')
     };
     service = new TaskService(web, db, sync);
+  });
+
+  it('caches a created list before emitting it to the navigation flow', async () => {
+    const created: List = { _id: 'list-2', title: 'Field work' };
+    const existingList: List = { _id: 'list-1', title: 'Existing' };
+    web.post = jasmine.createSpy('post').and.returnValue(of(created));
+    db.getLists.and.returnValue(Promise.resolve([existingList]));
+
+    const result = await firstValueFrom(service.createList(created.title));
+
+    expect(db.replaceLists).toHaveBeenCalledOnceWith([existingList, created]);
+    expect(result).toEqual(created);
   });
 
   it('stores a delete snapshot so permanent failure can restore the task', async () => {

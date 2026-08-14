@@ -521,7 +521,7 @@ app.patch('/lists/:listId/tasks/:taskId', authenticate, replayOrRecordAction, (r
                     $set: updates,
                     $inc: { syncVersion: 1 }
                 },
-                { new: true, runValidators: true }
+                { returnDocument: 'after', runValidators: true }
             ).then((taskDoc) => {
                 if (!taskDoc) {
                     return res.sendStatus(404);

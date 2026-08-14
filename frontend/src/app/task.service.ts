@@ -32,7 +32,15 @@ export class TaskService {
   }
 
   createList(title: string) {
-    return this.webReqService.post<List>('lists', { title }).pipe(tap(() => this.refreshLists()));
+    return this.webReqService.post<List>('lists', { title }).pipe(
+      switchMap((list) => from(this.db.getLists()).pipe(
+        switchMap((lists) => from(this.db.replaceLists([
+          ...lists.filter((cached) => cached._id !== list._id),
+          list
+        ]))),
+        map(() => list)
+      ))
+    );
   }
 
   updateList(id: string, title: string) {
