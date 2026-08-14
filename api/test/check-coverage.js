@@ -2,7 +2,7 @@ const { spawnSync } = require('node:child_process');
 
 const result = spawnSync(
   process.execPath,
-  ['--experimental-test-coverage', '--test', 'test/idempotency.test.js', 'test/model-validation.test.js'],
+  ['--experimental-test-coverage', '--test', '--test-reporter=tap', 'test/idempotency.test.js', 'test/model-validation.test.js'],
   { cwd: process.cwd(), encoding: 'utf8', env: { ...process.env, TMPDIR: '/tmp' } }
 );
 
@@ -18,8 +18,8 @@ if (result.status !== 0) {
 }
 
 const requiredFiles = [
-  'db/models/action-receipt.model.js',
-  'db/models/task.model.js',
+  'action-receipt.model.js',
+  'task.model.js',
   'idempotency.js'
 ];
 const rows = new Map(
@@ -27,8 +27,8 @@ const rows = new Map(
     .split('\n')
     .filter(line => line.startsWith('# ') && line.includes(' | '))
     .map(line => {
-      const [file, lines, branches, functions] = line.slice(2).split(' | ');
-      return [file, [lines, branches, functions]];
+      const [file, lines, branches, functions] = line.slice(2).trimStart().split(' | ');
+      return [file.trim(), [lines, branches, functions]];
     })
 );
 

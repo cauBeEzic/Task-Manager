@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.*
+!.env.example
 .angular/*
 dist/
 coverage/
@@ -11,6 +12,5 @@ yarn-error.log*
 pnpm-debug.log*
 .DS_Store
 Thumbs.db
-.angular/cache/17.3.17/
-frontend/.angular/cache/17.3.17/babel-webpack/
-frontend/.angular/cache/17.3.17/angular-webpack/
+.angular/cache/
+frontend/.angular/cache/

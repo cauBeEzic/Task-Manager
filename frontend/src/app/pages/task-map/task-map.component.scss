@@ -1,4 +1,4 @@
-@import '../../../main-styles.scss';
+@use '../../../theme' as *;
 
 .map-page {
   width: min(1200px, calc(100% - 32px));

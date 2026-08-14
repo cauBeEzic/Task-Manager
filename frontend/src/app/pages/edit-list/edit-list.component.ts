@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Params, Router } from '@angular/router';
-import { TaskService } from 'src/app/task.service';
+import { TaskService } from '../../task.service';
 
 @Component({
+  standalone: false,
   selector: 'app-edit-list',
   templateUrl: './edit-list.component.html',
   styleUrls: ['./edit-list.component.scss']
@@ -11,7 +12,7 @@ export class EditListComponent implements OnInit {
 
   constructor(private route: ActivatedRoute, private taskService: TaskService, private router: Router) { }
 
-  listId: string;
+  listId = '';
 
   
   ngOnInit() {

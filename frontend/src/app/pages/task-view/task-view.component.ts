@@ -2,20 +2,21 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { AuthService } from 'src/app/auth.service';
-import { List } from 'src/app/models/list.model';
-import { Task } from 'src/app/models/task.model';
-import { TaskService } from 'src/app/task.service';
+import { AuthService } from '../../auth.service';
+import { List } from '../../models/list.model';
+import { Task } from '../../models/task.model';
+import { TaskService } from '../../task.service';
 
 @Component({
+  standalone: false,
   selector: 'app-task-view',
   templateUrl: './task-view.component.html',
   styleUrls: ['./task-view.component.scss']
 })
 export class TaskViewComponent implements OnInit, OnDestroy {
-  lists: List[];
-  tasks: Task[];
-  selectedListId: string;
+  lists: List[] = [];
+  tasks?: Task[];
+  selectedListId = '';
   private readonly subscriptions = new Subscription();
 
   constructor(

@@ -1,7 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "angular",
+  "functions": {
+    "api/proxy.js": { "maxDuration": 15 }
+  },
   "rewrites": [
-    { "source": "/api/:match*", "destination": "https://YOUR-API-PROJECT.vercel.app/:match*" },
+    { "source": "/api/:match*", "destination": "/api/proxy?path=:match*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

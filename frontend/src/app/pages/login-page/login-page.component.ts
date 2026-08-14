@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
-import { AuthService } from 'src/app/auth.service';
+import { AuthService } from '../../auth.service';
 import { HttpResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 
 @Component({
+  standalone: false,
   selector: 'app-login-page',
   templateUrl: './login-page.component.html',
   styleUrls: ['./login-page.component.scss']

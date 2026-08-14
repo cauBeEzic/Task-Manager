@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { PendingAction, SyncSummary } from '../models/pending-action.model';
 import { Task } from '../models/task.model';
@@ -115,11 +115,11 @@ export class SyncService {
     try {
       let response: Task | null = null;
       if (action.kind === 'CREATE_TASK') {
-        response = await this.http.post<Task>(`${environment.apiUrl}/lists/${action.listId}/tasks`, action.payload, { headers }).toPromise();
+        response = await firstValueFrom(this.http.post<Task>(`${environment.apiUrl}/lists/${action.listId}/tasks`, action.payload, { headers }));
       } else if (action.kind === 'UPDATE_TASK') {
-        response = await this.http.patch<Task>(`${environment.apiUrl}/lists/${action.listId}/tasks/${action.entityId}`, action.payload, { headers }).toPromise();
+        response = await firstValueFrom(this.http.patch<Task>(`${environment.apiUrl}/lists/${action.listId}/tasks/${action.entityId}`, action.payload, { headers }));
       } else {
-        await this.http.delete(`${environment.apiUrl}/lists/${action.listId}/tasks/${action.entityId}`, { headers }).toPromise();
+        await firstValueFrom(this.http.delete(`${environment.apiUrl}/lists/${action.listId}/tasks/${action.entityId}`, { headers }));
       }
 
       if (action.kind === 'CREATE_TASK' && response) {

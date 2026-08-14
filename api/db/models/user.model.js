@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
@@ -41,7 +40,9 @@ UserSchema.methods.toJSON = function () {
     const userObject = user.toObject();
 
     // return the document except the password and sessions (these shouldn't be made available)
-    return _.omit(userObject, ['password', 'sessions']);
+    delete userObject.password;
+    delete userObject.sessions;
+    return userObject;
 }
 
 UserSchema.methods.generateAccessAuthToken = function () {
@@ -164,22 +165,9 @@ UserSchema.statics.hasRefreshTokenExpired = (expiresAt) => {
 
 /* MIDDLEWARE */
 // Before a user document is saved, this code runs
-UserSchema.pre('save', function (next) {
-    let user = this;
-    let costFactor = 10;
-
-    if (user.isModified('password')) {
-        // if the password field has been edited/changed then run this code.
-
-        // Generate salt and hash password
-        bcrypt.genSalt(costFactor, (err, salt) => {
-            bcrypt.hash(user.password, salt, (err, hash) => {
-                user.password = hash;
-                next();
-            })
-        })
-    } else {
-        next();
+UserSchema.pre('save', async function () {
+    if (this.isModified('password')) {
+        this.password = await bcrypt.hash(this.password, 10);
     }
 });
 

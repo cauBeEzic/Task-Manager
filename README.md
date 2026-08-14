@@ -46,9 +46,9 @@ The basemap requires a connection unless the browser happens to retain recently 
 
 ## Tech stack
 
-- Angular 17, TypeScript, RxJS, Angular service worker, IndexedDB
+- Angular 22, TypeScript 6, RxJS, Angular service worker, IndexedDB
 - MapLibre GL JS with OpenFreeMap/OpenStreetMap
-- Node.js, Express, MongoDB, Mongoose
+- Node.js 24, Express 5, MongoDB 8/Atlas, Mongoose 9
 - JWT, bcryptjs, cookies, Helmet, CORS, rate limiting
 - Karma/Jasmine and Playwright
 - Vercel for frontend/API and MongoDB Atlas for persistence
@@ -60,7 +60,7 @@ Start MongoDB, then run the API:
 ```bash
 cd api
 cp .env.example .env
-npm install
+npm ci
 npm start
 ```
 
@@ -68,7 +68,7 @@ In a second terminal:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm start
 ```
 
@@ -84,7 +84,9 @@ npx http-server -p 8080 -c-1 dist/frontend
 
 ## Free deployment
 
-Use two Vercel projects from this repository.
+Use two Vercel projects from this repository. The frontend project includes a
+small same-origin serverless proxy at `/api/*`; this keeps refresh and CSRF
+cookies first-party without hardcoding the API deployment URL in source.
 
 ### API project
 
@@ -94,6 +96,7 @@ Use two Vercel projects from this repository.
 
 ```text
 JWT_SECRET=<a long random secret>
+PROXY_SHARED_SECRET=<a separate long random secret shared with the frontend>
 MONGO_URI=<Atlas connection string>
 ALLOWED_ORIGINS=https://<frontend-project>.vercel.app
 NODE_ENV=production
@@ -104,10 +107,19 @@ COOKIE_SAMESITE=lax
 
 ### Frontend project
 
-1. Replace `YOUR-API-PROJECT` in `frontend/vercel.json` with the API project name.
-2. Set the Vercel root directory to `frontend`.
-3. Use `npm run build` as the build command and `dist/frontend` as the output directory.
-4. Deploy.
+1. Set the Vercel root directory to `frontend`.
+2. Set `API_ORIGIN` to the API production URL, for example
+   `https://<api-project>.vercel.app`. Do not add a trailing path.
+3. Set `PROXY_SHARED_SECRET` to the exact same random value used by the API.
+   It authenticates the client-IP handoff used by the login rate limiter.
+4. Use `npm run build` as the build command and `dist/frontend` as the output directory.
+5. Deploy. The checked-in `frontend/vercel.json` routes `/api/*` through the
+   proxy function and sends all remaining routes to Angular's `index.html`.
+
+Set `API_ORIGIN` for Preview and Production. Vercel preview URLs then continue
+to use same-origin cookies without adding every preview hostname to the API's
+CORS allowlist. The API's `/healthz` endpoint verifies both the function and its
+MongoDB connection.
 
 The frontend proxies `/api/*` through its own origin. That keeps authentication cookies first-party and avoids coupling the compiled Angular bundle to an API hostname.
 
@@ -124,6 +136,9 @@ npx tsc -p src/tsconfig.spec.json --noEmit
 # Run 56 frontend tests and enforce 100% coverage on the offline DB/sync engine
 npm run test:coverage
 
+# Verify the Vercel same-origin API proxy
+npm run test:proxy
+
 # Validate backend location/idempotency models
 cd ../api
 npm test
@@ -131,12 +146,18 @@ npm test
 # Enforce 100% coverage on the idempotency helper and affected models
 npm run test:coverage
 
-# Full API/browser suite (requires MongoDB and Chromium)
+# Full API/browser suite (requires MongoDB 8+ and Chromium)
 cd ../frontend
 npm run e2e
 ```
 
+GitHub Actions runs these checks as separate API, frontend, and end-to-end jobs
+on Node.js 24. The end-to-end job starts MongoDB 8 and waits on `/healthz`
+before Playwright begins.
+
 The coverage gates are intentionally scoped to the new reliability-critical modules. The complete legacy frontend currently reports 74.7% line coverage; it is not represented as having 100% repository-wide coverage.
+
+The authentication limiter keys requests by client address and a hashed account/session identity. `PROXY_SHARED_SECRET` lets the API trust the client address handed off by the frontend function without accepting a spoofed public header. Its in-memory counters are intentionally a basic safeguard per warm function instance; a high-traffic deployment should use a shared `express-rate-limit` store or an edge/WAF rate-limit rule.
 
 Manual offline acceptance test:
 

@@ -19,7 +19,7 @@ describe('TaskViewComponent', () => {
     const component = new TaskViewComponent(tasks as any, route as any, router as any, auth as any);
 
     component.ngOnInit();
-    component.onTaskClick(component.tasks[0]);
+    component.onTaskClick(component.tasks![0]);
     component.onDeleteTaskClick('task-1');
     component.onDeleteListClick();
     component.onLogoutClick();

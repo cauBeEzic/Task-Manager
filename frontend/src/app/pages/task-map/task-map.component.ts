@@ -7,6 +7,7 @@ import { Task } from '../../models/task.model';
 import { TaskService } from '../../task.service';
 
 @Component({
+  standalone: false,
   selector: 'app-task-map',
   templateUrl: './task-map.component.html',
   styleUrls: ['./task-map.component.scss']

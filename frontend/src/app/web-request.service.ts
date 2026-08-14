@@ -11,24 +11,24 @@ export class WebRequestService {
 
   constructor(private http: HttpClient) {}
 
-  get(uri: string) {
-    return this.http.get(`${this.ROOT_URL}/${uri}`, { withCredentials: true });
+  get<T = unknown>(uri: string) {
+    return this.http.get<T>(`${this.ROOT_URL}/${uri}`, { withCredentials: true });
   }
 
-  post(uri: string, payload: Object) {
-    return this.http.post(`${this.ROOT_URL}/${uri}`, payload, { withCredentials: true });
+  post<T = unknown>(uri: string, payload: object) {
+    return this.http.post<T>(`${this.ROOT_URL}/${uri}`, payload, { withCredentials: true });
   }
 
-  patch(uri: string, payload: Object) {
-    return this.http.patch(`${this.ROOT_URL}/${uri}`, payload, { withCredentials: true });
+  patch<T = unknown>(uri: string, payload: object) {
+    return this.http.patch<T>(`${this.ROOT_URL}/${uri}`, payload, { withCredentials: true });
   }
 
-  delete(uri: string) {
-    return this.http.delete(`${this.ROOT_URL}/${uri}`, { withCredentials: true });
+  delete<T = unknown>(uri: string) {
+    return this.http.delete<T>(`${this.ROOT_URL}/${uri}`, { withCredentials: true });
   }
 
   login(email: string, password: string) {
-    return this.http.post(`${this.ROOT_URL}/users/login`, {
+    return this.http.post<{ _id?: string }>(`${this.ROOT_URL}/users/login`, {
       email,
       password
     }, {
@@ -38,7 +38,7 @@ export class WebRequestService {
   }
 
   signup(email: string, password: string) {
-    return this.http.post(`${this.ROOT_URL}/users`, {
+    return this.http.post<{ _id?: string }>(`${this.ROOT_URL}/users`, {
       email,
       password
     }, {
