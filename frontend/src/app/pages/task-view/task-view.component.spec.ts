@@ -16,7 +16,10 @@ describe('TaskViewComponent', () => {
     const route = { params: of({ listId: 'list-1' }) };
     const router = { navigate: jasmine.createSpy('navigate') };
     const auth = { logoutRequest: jasmine.createSpy('logoutRequest').and.returnValue(of({})) };
-    const component = new TaskViewComponent(tasks as any, route as any, router as any, auth as any);
+    const changeDetector = { markForCheck: jasmine.createSpy('markForCheck') };
+    const component = new TaskViewComponent(
+      tasks as any, route as any, router as any, auth as any, changeDetector as any
+    );
 
     component.ngOnInit();
     component.onTaskClick(component.tasks![0]);
@@ -30,6 +33,7 @@ describe('TaskViewComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/lists']);
     expect(auth.logoutRequest).toHaveBeenCalled();
     expect(tasks.getCachedTasks).toHaveBeenCalledWith('list-1');
+    expect(changeDetector.markForCheck).toHaveBeenCalled();
     component.ngOnDestroy();
   });
 });

@@ -72,7 +72,15 @@ test('recovers the browser session after an application reload', async ({ page }
 
   await page.getByRole('button', { name: '+ New List' }).click();
   await page.getByPlaceholder('Enter list name...').fill(listTitle);
+  const createResponsePromise = page.waitForResponse(
+    response => response.url() === `${API_URL}/lists` && response.request().method() === 'POST'
+  );
   await page.getByRole('button', { name: 'Create' }).click();
+  const createResponse = await createResponsePromise;
+  const createdList = await createResponse.json();
+  expect(createResponse.status(), JSON.stringify(createdList)).toBe(200);
+  expect(createdList._id).toMatch(/^[a-f\d]{24}$/);
+  await expect(page).toHaveURL(new RegExp(`/lists/${createdList._id}$`));
   await expect(page.getByText(listTitle, { exact: true })).toBeVisible();
 
   const refreshResponse = page.waitForResponse(

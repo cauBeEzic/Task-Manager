@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -23,24 +23,35 @@ export class TaskViewComponent implements OnInit, OnDestroy {
     private taskService: TaskService,
     private route: ActivatedRoute,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private changeDetector: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     this.subscriptions.add(this.route.params.subscribe((params: Params) => {
       if (params.listId) {
         this.selectedListId = params.listId;
-        this.subscriptions.add(this.taskService.getTasks(params.listId).subscribe((tasks: Task[]) => this.tasks = tasks));
+        this.subscriptions.add(this.taskService.getTasks(params.listId).subscribe((tasks: Task[]) => {
+          this.tasks = tasks;
+          this.changeDetector.markForCheck();
+        }));
       } else {
         this.tasks = undefined;
       }
+      this.changeDetector.markForCheck();
     }));
 
-    this.subscriptions.add(this.taskService.getLists().subscribe((lists: List[]) => this.lists = lists));
+    this.subscriptions.add(this.taskService.getLists().subscribe((lists: List[]) => {
+      this.lists = lists;
+      this.changeDetector.markForCheck();
+    }));
     this.subscriptions.add(this.taskService.changes$.pipe(
       filter(change => change.type === 'tasks' && !!this.selectedListId && (!change.listId || change.listId === this.selectedListId))
     ).subscribe(() => {
-      this.taskService.getCachedTasks(this.selectedListId).subscribe(tasks => this.tasks = tasks);
+      this.subscriptions.add(this.taskService.getCachedTasks(this.selectedListId).subscribe(tasks => {
+        this.tasks = tasks;
+        this.changeDetector.markForCheck();
+      }));
     }));
   }
 

@@ -133,7 +133,7 @@ npm run build -- --configuration production
 # Type-check application tests
 npx tsc -p src/tsconfig.spec.json --noEmit
 
-# Run 56 frontend tests and enforce 100% coverage on the offline DB/sync engine
+# Run 57 frontend tests and enforce 100% coverage on the offline DB/sync engine
 npm run test:coverage
 
 # Verify the Vercel same-origin API proxy
