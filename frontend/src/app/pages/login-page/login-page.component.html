@@ -1,35 +1,59 @@
-<div class="centered-content">
-    <div class="white-box">
-  
-      <h1 class="title has-text-primary">Login</h1>
-      
-      <div class="field">
-        <p class="control has-icons-left has-icons-right">
-          <input #emailInput class="input has-background-light" type="email" placeholder="Email">
-          <span class="icon is-small is-left">
-            <i class="fas fa-envelope"></i>
-          </span>
-        </p>
-      </div>
-      <div class="field">
-        <p class="control has-icons-left">
-          <input #pwInput class="input has-background-light" type="password" placeholder="Password">
-          <span class="icon is-small is-left">
-            <i class="fas fa-lock"></i>
-          </span>
-        </p>
-      </div>
-      <div class="field" style="display: flex; justify-content: flex-end;">
-        <p class="control">
-          <button class="button is-success has-text-white" (click)="onLoginButtonClicked(emailInput.value, pwInput.value)">
-            Login
-          </button>
-        </p>
-      </div>
-  
-      <br>
-  
-      <p class="has-text-grey">Not got an account? <a routerLink="/signup">Sign up</a> now!</p>
-  
+<div class="auth-page">
+  <section class="auth-brand-panel" aria-label="Field Tasks overview">
+    <a class="auth-brand" routerLink="/lists" aria-label="Field Tasks home">
+      <span class="auth-brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M7 3.75h10A2.25 2.25 0 0 1 19.25 6v12A2.25 2.25 0 0 1 17 20.25H7A2.25 2.25 0 0 1 4.75 18V6A2.25 2.25 0 0 1 7 3.75Z" stroke="currentColor" stroke-width="1.8"/><path d="m8 12 2.15 2.15L16.5 8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span>Field Tasks</span>
+    </a>
+
+    <div class="auth-brand-copy">
+      <span class="auth-kicker">Offline-first field operations</span>
+      <h2>Keep work moving when the signal drops.</h2>
+      <p>Plan tasks, map locations, and sync every field update when your connection returns.</p>
+      <ul class="auth-benefits">
+        <li><span aria-hidden="true"></span>Durable offline task updates</li>
+        <li><span aria-hidden="true"></span>Location-aware field guidance</li>
+        <li><span aria-hidden="true"></span>Private, user-scoped workspaces</li>
+      </ul>
     </div>
-  </div>
+
+    <p class="auth-brand-footer">Built for focused work in changing conditions.</p>
+  </section>
+
+  <section class="auth-form-panel">
+    <div class="auth-card">
+      <header class="auth-heading">
+        <span class="eyebrow">Welcome back</span>
+        <h1 class="title">Login</h1>
+        <p>Sign in to open your latest field workspace.</p>
+      </header>
+
+      <form class="auth-form" (ngSubmit)="onLoginButtonClicked(emailInput.value, pwInput.value)">
+        <div class="field">
+          <label class="app-field-label" for="login-email">Email address</label>
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M3.75 6.75A2.25 2.25 0 0 1 6 4.5h12a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 18 19.5H6a2.25 2.25 0 0 1-2.25-2.25V6.75Z" stroke="currentColor" stroke-width="1.7"/><path d="m4.5 7.5 6.17 4.5a2.25 2.25 0 0 0 2.66 0l6.17-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <input #emailInput id="login-email" class="input" type="email" inputmode="email" autocomplete="email" placeholder="Email" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="app-field-label" for="login-password">Password</label>
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10" width="15" height="10" rx="2.25" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <input #pwInput id="login-password" class="input" type="password" autocomplete="current-password" placeholder="Password" required>
+          </div>
+        </div>
+
+        <button class="button is-primary auth-submit" type="submit">Login</button>
+      </form>
+
+      <p class="auth-switch">New to Field Tasks? <a routerLink="/signup">Create an account</a></p>
+    </div>
+  </section>
+</div>

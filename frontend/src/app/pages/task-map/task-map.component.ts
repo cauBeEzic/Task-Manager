@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
@@ -25,7 +25,16 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
   private mapLoaded = false;
   private readonly subscriptions = new Subscription();
 
-  constructor(private route: ActivatedRoute, private taskService: TaskService) {}
+  constructor(
+    private route: ActivatedRoute,
+    private taskService: TaskService,
+    private changeDetector: ChangeDetectorRef
+  ) {}
+
+  get isRadiusValid(): boolean {
+    const radius = Number(this.radiusMeters);
+    return Number.isFinite(radius) && radius >= 25 && radius <= 5000;
+  }
 
   ngOnInit(): void {
     this.listId = this.route.snapshot.paramMap.get('listId') || '';
@@ -36,6 +45,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
       this.taskService.getCachedTasks(this.listId).subscribe(tasks => {
         this.tasks = tasks;
         this.updateTaskSource();
+        this.changeDetector.markForCheck();
       });
     }));
   }
@@ -56,6 +66,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.addControl(geolocate, 'top-right');
     geolocate.on('geolocate', (event: any) => {
       this.userPosition = [event.coords.longitude, event.coords.latitude];
+      this.changeDetector.markForCheck();
     });
 
     this.map.on('load', () => {
@@ -70,16 +81,19 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       if (!this.selectedTaskId) {
         this.mapMessage = 'Choose a task before placing a location.';
+        this.changeDetector.markForCheck();
         return;
       }
       this.draftCoordinates = [event.lngLat.lng, event.lngLat.lat];
       this.updateDraftSource();
       this.mapMessage = 'Location selected. Save it to queue the change.';
+      this.changeDetector.markForCheck();
     });
     this.map.on('error', () => {
-      if (!navigator.onLine) {
-        this.mapMessage = 'The basemap needs a connection; cached tasks remain available in the list.';
-      }
+      this.mapMessage = navigator.onLine
+        ? 'The basemap is temporarily unavailable. Your cached tasks and location drafts are still safe.'
+        : 'The basemap needs a connection; cached tasks remain available in the list.';
+      this.changeDetector.markForCheck();
     });
   }
 
@@ -98,10 +112,11 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
       this.map?.flyTo({ center: task.location.coordinates, zoom: 15 });
       this.updateDraftSource();
     }
+    this.changeDetector.markForCheck();
   }
 
   saveLocation(): void {
-    if (!this.selectedTask || !this.draftCoordinates) {
+    if (!this.selectedTask || !this.draftCoordinates || !this.isRadiusValid) {
       return;
     }
     this.taskService.updateTaskFields(this.listId, this.selectedTask._id, {
@@ -109,6 +124,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
       geofenceRadiusMeters: Number(this.radiusMeters)
     }).subscribe(() => {
       this.mapMessage = navigator.onLine ? 'Location queued and being confirmed.' : 'Location saved offline and queued.';
+      this.changeDetector.markForCheck();
     });
   }
 
@@ -116,6 +132,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
     const task = this.selectedTask;
     if (!task?.location) {
       this.mapMessage = 'Assign a location to this task first.';
+      this.changeDetector.markForCheck();
       return;
     }
     const draw = (position: [number, number]) => {
@@ -129,6 +146,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
       const bounds = new maplibregl.LngLatBounds(position, position).extend(task.location!.coordinates);
       this.map?.fitBounds(bounds, { padding: 80, maxZoom: 15 });
       this.mapMessage = `Straight-line distance: ${this.distanceTo(task)}. This is guidance, not turn-by-turn routing.`;
+      this.changeDetector.markForCheck();
     };
     if (this.userPosition) {
       draw(this.userPosition);
@@ -136,7 +154,10 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     navigator.geolocation.getCurrentPosition(
       position => draw([position.coords.longitude, position.coords.latitude]),
-      () => this.mapMessage = 'Location permission is required for guidance.',
+      () => {
+        this.mapMessage = 'Location permission is required for guidance.';
+        this.changeDetector.markForCheck();
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
@@ -162,6 +183,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.add(this.taskService.getTasks(this.listId).subscribe(tasks => {
       this.tasks = tasks;
       this.updateTaskSource();
+      this.changeDetector.markForCheck();
     }));
   }
 
@@ -178,19 +200,19 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.addSource('guidance', { type: 'geojson', data: this.emptyCollection() });
     this.map.addLayer({
       id: 'clusters', type: 'circle', source: 'tasks', filter: ['has', 'point_count'],
-      paint: { 'circle-color': '#27d7a1', 'circle-radius': ['step', ['get', 'point_count'], 18, 10, 24, 30, 30] }
+      paint: { 'circle-color': '#2563eb', 'circle-radius': ['step', ['get', 'point_count'], 18, 10, 24, 30, 30] }
     });
     this.map.addLayer({
       id: 'cluster-count', type: 'symbol', source: 'tasks', filter: ['has', 'point_count'],
       layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 12 },
-      paint: { 'text-color': '#073f36' }
+      paint: { 'text-color': '#ffffff' }
     });
     this.map.addLayer({
       id: 'task-pins', type: 'circle', source: 'tasks', filter: ['!', ['has', 'point_count']],
-      paint: { 'circle-color': ['case', ['get', 'completed'], '#7d8b88', '#08745f'], 'circle-radius': 9, 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' }
+      paint: { 'circle-color': ['case', ['get', 'completed'], '#64748b', '#0f766e'], 'circle-radius': 9, 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' }
     });
-    this.map.addLayer({ id: 'guidance-line', type: 'line', source: 'guidance', paint: { 'line-color': '#1769aa', 'line-width': 4, 'line-dasharray': [2, 2] } });
-    this.map.addLayer({ id: 'draft-pin', type: 'circle', source: 'draft', paint: { 'circle-color': '#f4b400', 'circle-radius': 10, 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' } });
+    this.map.addLayer({ id: 'guidance-line', type: 'line', source: 'guidance', paint: { 'line-color': '#f97316', 'line-width': 4, 'line-dasharray': [2, 2] } });
+    this.map.addLayer({ id: 'draft-pin', type: 'circle', source: 'draft', paint: { 'circle-color': '#f97316', 'circle-radius': 10, 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' } });
 
     this.map.on('click', 'clusters', async event => {
       const feature = this.map!.queryRenderedFeatures(event.point, { layers: ['clusters'] })[0];

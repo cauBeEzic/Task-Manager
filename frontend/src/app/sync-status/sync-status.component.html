@@ -1,6 +1,12 @@
-<div class="sync-status" *ngIf="summary$ | async as summary"
-  [class.offline]="!summary.online" [class.failed]="summary.failed > 0">
-  <span class="status-dot"></span>
+<div class="sync-status" *ngIf="summary$ | async as summary" role="status" aria-live="polite"
+  [class.offline]="!summary.online" [class.failed]="summary.failed > 0"
+  [class.idle]="summary.online && summary.queued === 0 && summary.pending === 0 && summary.retrying === 0 && summary.failed === 0">
+  <span class="status-icon" aria-hidden="true">
+    <svg *ngIf="summary.online && summary.failed === 0" viewBox="0 0 20 20" fill="none"><path d="M3.75 13.4A3.25 3.25 0 0 1 5.4 7.36 5 5 0 0 1 15 8.8a2.6 2.6 0 0 1-.65 5.12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="m7 13 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg *ngIf="!summary.online" viewBox="0 0 20 20" fill="none"><path d="M3 3 17 17M5.1 7.5A5 5 0 0 1 14.8 9M3.75 13.4a3.25 3.25 0 0 1-.1-5.33M7.2 14H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <svg *ngIf="summary.failed > 0" viewBox="0 0 20 20" fill="none"><path d="m10 2.75 7.25 13H2.75l7.25-13Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 7v4M10 13.5v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+  </span>
+
   <span *ngIf="!summary.online">Offline — changes will sync when you reconnect</span>
   <span *ngIf="summary.online && summary.pending > 0">Sending {{ summary.pending }} change{{ summary.pending === 1 ? '' : 's' }}…</span>
   <span *ngIf="summary.online && summary.retrying > 0">Retrying {{ summary.retrying }} change{{ summary.retrying === 1 ? '' : 's' }}…</span>

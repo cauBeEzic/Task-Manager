@@ -14,3 +14,7 @@ pnpm-debug.log*
 Thumbs.db
 .angular/cache/
 frontend/.angular/cache/
+.playwright-cli/
+frontend/test-results/
+output/playwright/
+.codex/skills/ui-ux-pro-max/

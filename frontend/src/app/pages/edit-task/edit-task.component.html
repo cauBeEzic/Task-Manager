@@ -1,14 +1,21 @@
-<div class="centered-content">
-    <div class="modal-box">
-      <h1 class="title">
-        Edit task
-      </h1>
-  
-      <input #taskTitleInput class="input has-background-light is-medium" type="text" placeholder="Enter task name...">
-      <br><br>
-      <div class="buttons is-right">
-        <button class="button is-medium" routerLink="/">Cancel</button>
-        <button class="button is-primary has-text-white is-medium" (click)="updateTask(taskTitleInput.value)">Save</button>
-      </div>
+<div class="editor-page">
+  <section class="editor-card" aria-labelledby="edit-task-title">
+    <div class="editor-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="m14.5 5.5 4 4M4.75 19.25l3.9-.8L19.2 7.9a1.7 1.7 0 0 0 0-2.4l-.7-.7a1.7 1.7 0 0 0-2.4 0L5.55 15.35l-.8 3.9Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
-  </div>
+    <header class="editor-heading">
+      <span class="eyebrow">Task details</span>
+      <h1 id="edit-task-title" class="title">Edit task</h1>
+      <p>Refine the task title while keeping its status and location.</p>
+    </header>
+
+    <form (ngSubmit)="updateTask(taskTitleInput.value)">
+      <label class="app-field-label" for="edit-task-name">Task name</label>
+      <input #taskTitleInput id="edit-task-name" name="taskTitle" class="input is-medium" type="text" autocomplete="off" placeholder="Enter task name..." required>
+      <div class="editor-actions">
+        <button class="button is-medium" type="button" [routerLink]="['/lists', listId]">Cancel</button>
+        <button class="button is-primary is-medium" type="submit">Save</button>
+      </div>
+    </form>
+  </section>
+</div>

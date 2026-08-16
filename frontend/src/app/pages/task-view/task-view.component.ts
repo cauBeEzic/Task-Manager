@@ -19,6 +19,14 @@ export class TaskViewComponent implements OnInit, OnDestroy {
   selectedListId = '';
   private readonly subscriptions = new Subscription();
 
+  get completedTaskCount(): number {
+    return this.tasks?.filter(task => task.completed).length || 0;
+  }
+
+  get taskCompletionPercent(): number {
+    return this.tasks?.length ? Math.round((this.completedTaskCount / this.tasks.length) * 100) : 0;
+  }
+
   constructor(
     private taskService: TaskService,
     private route: ActivatedRoute,

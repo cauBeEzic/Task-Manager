@@ -1,44 +1,106 @@
 .sync-status {
   position: fixed;
-  z-index: 20;
-  top: 14px;
+  z-index: 50;
+  right: auto;
+  bottom: 18px;
   left: 50%;
-  transform: translateX(-50%);
   display: flex;
+  min-height: 38px;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 8px 11px;
+  border: 1px solid #a7f3d0;
   border-radius: 999px;
-  background: #e9fff8;
-  color: #075d4d;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
-  font-size: 13px;
+  background: rgba(236, 253, 245, 0.96);
+  color: #065f46;
+  box-shadow: 0 7px 24px rgba(16, 35, 63, 0.13);
+  font-size: 0.75rem;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+  transform: translateX(-50%);
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #27d7a1;
+.idle {
+  display: none;
+}
+
+.status-icon {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+
+  svg {
+    width: 19px;
+    height: 19px;
+  }
 }
 
 .offline {
-  background: #fff6d6;
-  color: #6b5200;
-
-  .status-dot { background: #f4b400; }
+  border-color: #fed7aa;
+  background: rgba(255, 247, 237, 0.97);
+  color: #9a3412;
 }
 
 .failed {
-  border: 1px solid #ffb6b6;
+  border-color: #fecdd3;
+  background: rgba(255, 241, 242, 0.97);
+  color: #be123c;
 }
 
 button {
-  border: 0;
+  min-height: 26px;
+  padding: 3px 9px;
+  border: 1px solid currentColor;
   border-radius: 999px;
-  padding: 3px 8px;
-  background: white;
+  background: rgba(255, 255, 255, 0.72);
   color: inherit;
-  cursor: pointer;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
+  transition: background-color 180ms ease;
+
+  &:hover {
+    background: white;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .sync-status {
+    border-color: #1f6f5d;
+    background: rgba(11, 51, 43, 0.96);
+    color: #99f6e4;
+  }
+
+  .offline {
+    border-color: #854d0e;
+    background: rgba(66, 32, 6, 0.96);
+    color: #fde68a;
+  }
+
+  .failed {
+    border-color: #881337;
+    background: rgba(70, 13, 35, 0.96);
+    color: #fecdd3;
+  }
+
+  button {
+    background: rgba(255, 255, 255, 0.08);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .sync-status {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    justify-content: center;
+    border-radius: 12px;
+    text-align: center;
+    transform: none;
+  }
 }

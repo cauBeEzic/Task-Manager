@@ -1,16 +1,21 @@
-<div class="centered-content">
-  <div class="modal-box">
-    <h1 class="title">
-      Create a new list
-    </h1>
-
-    <input #listTitleInput class="input has-background-light is-medium" type="text" placeholder="Enter list name...">
-    <br><br>
-    <div class="buttons is-right">
-      <button class="button is-medium" routerLink="/">Cancel</button>
-      <button class="button is-primary has-text-white is-medium" (click)="createList(listTitleInput.value)">Create</button>
+<div class="editor-page">
+  <section class="editor-card" aria-labelledby="new-list-title">
+    <div class="editor-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 6.5h14M5 12h14M5 17.5h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 15v5m-2.5-2.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     </div>
+    <header class="editor-heading">
+      <span class="eyebrow">New workspace</span>
+      <h1 id="new-list-title" class="title">Create a new list</h1>
+      <p>Group related field tasks into a focused workspace.</p>
+    </header>
 
-    
-  </div>
+    <form (ngSubmit)="createList(listTitleInput.value)">
+      <label class="app-field-label" for="new-list-name">List name</label>
+      <input #listTitleInput id="new-list-name" name="listTitle" class="input is-medium" type="text" autocomplete="off" placeholder="Enter list name..." required>
+      <div class="editor-actions">
+        <button class="button is-medium" type="button" routerLink="/lists">Cancel</button>
+        <button class="button is-primary is-medium" type="submit">Create</button>
+      </div>
+    </form>
+  </section>
 </div>

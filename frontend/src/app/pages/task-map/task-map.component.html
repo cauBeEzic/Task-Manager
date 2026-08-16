@@ -1,31 +1,79 @@
-<div class="map-page">
-  <aside class="map-panel">
-    <a class="back-link" [routerLink]="['/lists', listId]">← Back to tasks</a>
-    <h1 class="title has-text-primary">Task map</h1>
-    <p class="help-text">Pins are clustered when you zoom out. Device proximity is checked only while this page is open.</p>
+<div class="map-page-shell">
+  <div class="map-page">
+    <aside class="map-panel">
+      <a class="back-link" [routerLink]="['/lists', listId]">
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m12.5 5-5 5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to tasks
+      </a>
 
-    <label class="label" for="map-task">Task</label>
-    <div class="select is-fullwidth">
-      <select id="map-task" [(ngModel)]="selectedTaskId" (change)="onTaskSelected()">
-        <option value="">Choose a task</option>
-        <option *ngFor="let task of tasks" [value]="task._id">{{ task.title }}</option>
-      </select>
-    </div>
+      <header class="map-heading">
+        <span class="eyebrow">Location workspace</span>
+        <h1 class="title">Task map</h1>
+        <p>Pins cluster as you zoom out. Device proximity is checked only while this page is open.</p>
+      </header>
 
-    <label class="label radius-label" for="radius">Proximity radius (metres)</label>
-    <input id="radius" class="input" type="number" min="25" max="5000" [(ngModel)]="radiusMeters">
+      <div class="map-form">
+        <div class="map-field">
+          <label class="app-field-label" for="map-task">Choose a task</label>
+          <div class="select is-fullwidth">
+            <select id="map-task" [(ngModel)]="selectedTaskId" (change)="onTaskSelected()">
+              <option value="">Select a task</option>
+              <option *ngFor="let task of tasks" [value]="task._id">{{ task.title }}</option>
+            </select>
+          </div>
+        </div>
 
-    <div class="buttons map-actions">
-      <button class="button is-primary" [disabled]="!selectedTask || !draftCoordinates" (click)="saveLocation()">Save location</button>
-      <button class="button" [disabled]="!selectedTask?.location" (click)="guideToSelected()">Guide me</button>
-    </div>
+        <div class="map-field">
+          <label class="app-field-label" for="radius">Proximity radius</label>
+          <div class="radius-input">
+            <input id="radius" class="input" type="number" inputmode="numeric" min="25" max="5000"
+              [(ngModel)]="radiusMeters" [class.is-invalid]="!isRadiusValid" [attr.aria-invalid]="!isRadiusValid"
+              aria-describedby="radius-help">
+            <span>metres</span>
+          </div>
+          <p id="radius-help" class="field-help" [class.is-error]="!isRadiusValid">
+            {{ isRadiusValid ? 'Allowed range: 25 to 5,000 metres.' : 'Enter a radius from 25 to 5,000 metres.' }}
+          </p>
+        </div>
 
-    <div class="proximity" *ngIf="selectedTask?.location">
-      <strong>{{ distanceTo(selectedTask!) }}</strong>
-      <span *ngIf="isInsideRadius(selectedTask!)" class="inside">Inside task radius</span>
-      <span *ngIf="userPosition && !isInsideRadius(selectedTask!)">Outside task radius</span>
-    </div>
-    <p class="map-message">{{ mapMessage }}</p>
-  </aside>
-  <div id="task-map" class="map-canvas" aria-label="Map showing task locations"></div>
+        <div class="map-actions">
+          <button class="button is-primary" type="button" [disabled]="!selectedTask || !draftCoordinates || !isRadiusValid" (click)="saveLocation()">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17s5-4.6 5-9a5 5 0 1 0-10 0c0 4.4 5 9 5 9Z" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="8" r="1.6" fill="currentColor"/></svg>
+            Save location
+          </button>
+          <button class="button guide-button" type="button" [disabled]="!selectedTask?.location" (click)="guideToSelected()">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m10 2.75 6.25 14.5L10 14.5l-6.25 2.75L10 2.75Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            Guide me
+          </button>
+        </div>
+      </div>
+
+      <div class="proximity" *ngIf="selectedTask?.location">
+        <span class="proximity-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/><path d="M10 1.75v2M10 16.25v2M1.75 10h2M16.25 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </span>
+        <span>
+          <small>Distance to task</small>
+          <strong>{{ distanceTo(selectedTask!) }}</strong>
+          <span *ngIf="isInsideRadius(selectedTask!)" class="inside">Inside task radius</span>
+          <span *ngIf="userPosition && !isInsideRadius(selectedTask!)">Outside task radius</span>
+        </span>
+      </div>
+
+      <div class="map-message" aria-live="polite">
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.25" stroke="currentColor" stroke-width="1.5"/><path d="M10 9v4M10 6.5v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <p>{{ mapMessage }}</p>
+      </div>
+    </aside>
+
+    <section class="map-stage" aria-label="Interactive task map">
+      <div class="map-stage-label">
+        <span class="map-stage-icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none"><path d="m2.5 4 3-1.5 4 1.75 3.5-1.75v9.5l-3.5 1.5-4-1.75-3 1.5V4Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.5 2.5v9.25M9.5 4.25v9.25" stroke="currentColor" stroke-width="1.2"/></svg>
+        </span>
+        Interactive map
+      </div>
+      <div id="task-map" class="map-canvas" aria-label="Map showing task locations"></div>
+    </section>
+  </div>
 </div>
