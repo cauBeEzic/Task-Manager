@@ -1,5 +1,11 @@
-/* You can add global styles to this file, and also import other style files */
-
-@import 'main-styles';
-@import 'bulma/bulma';
-@import 'maplibre-gl/dist/maplibre-gl.css';
+@use 'theme' as theme;
+@use 'bulma/sass' with (
+  $family-primary: theme.$family-sans-serif,
+  $primary: theme.$primary,
+  $link: theme.$link,
+  $control-border-width: theme.$control-border-width,
+  $input-border-color: theme.$input-border-color,
+  $input-shadow: theme.$input-shadow
+);
+@use 'main-styles';
+@use 'maplibre-gl/dist/maplibre-gl.css';

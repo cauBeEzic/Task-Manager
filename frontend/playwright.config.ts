@@ -11,7 +11,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'node ../api/app.js',
-      url: 'http://localhost:3000/lists',
+      url: 'http://localhost:3000/healthz',
       reuseExistingServer: true,
       timeout: 300 * 1000,
       env: {

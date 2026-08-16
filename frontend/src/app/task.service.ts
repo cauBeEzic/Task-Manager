@@ -24,7 +24,7 @@ export class TaskService {
 
   getLists(): Observable<List[]> {
     const cached$ = defer(() => from(this.db.getLists())).pipe(catchError(() => of([])));
-    const remote$ = this.webReqService.get('lists').pipe(
+    const remote$ = this.webReqService.get<List[]>('lists').pipe(
       switchMap((lists: List[]) => from(this.db.replaceLists(lists)).pipe(map(() => lists))),
       catchError(() => EMPTY)
     );
@@ -32,7 +32,15 @@ export class TaskService {
   }
 
   createList(title: string) {
-    return this.webReqService.post('lists', { title }).pipe(tap(() => this.refreshLists()));
+    return this.webReqService.post<List>('lists', { title }).pipe(
+      switchMap((list) => from(this.db.getLists()).pipe(
+        switchMap((lists) => from(this.db.replaceLists([
+          ...lists.filter((cached) => cached._id !== list._id),
+          list
+        ]))),
+        map(() => list)
+      ))
+    );
   }
 
   updateList(id: string, title: string) {
@@ -45,7 +53,7 @@ export class TaskService {
 
   getTasks(listId: string): Observable<Task[]> {
     const cached$ = defer(() => from(this.db.getTasks(listId))).pipe(catchError(() => of([])));
-    const remote$ = this.webReqService.get(`lists/${listId}/tasks`).pipe(
+    const remote$ = this.webReqService.get<Task[]>(`lists/${listId}/tasks`).pipe(
       switchMap((tasks: Task[]) => from(this.db.mergeServerTasks(listId, tasks))),
       catchError(() => EMPTY)
     );
@@ -164,6 +172,6 @@ export class TaskService {
   }
 
   private refreshLists(): void {
-    this.webReqService.get('lists').subscribe((lists: List[]) => this.db.replaceLists(lists));
+    this.webReqService.get<List[]>('lists').subscribe((lists) => this.db.replaceLists(lists));
   }
 }

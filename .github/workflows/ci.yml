@@ -16,14 +16,106 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Lint, test, and build
+  api:
+    name: API unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci
+
+      - name: Check API syntax
+        run: |
+          node --check api/app.js
+          node --check api/auth-rate-limit.js
+          node --check api/idempotency.js
+
+      - name: Audit production dependencies
+        working-directory: api
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Run API unit tests
+        working-directory: api
+        run: npm test
+
+      - name: Enforce API coverage
+        working-directory: api
+        run: npm run test:coverage
+
+  frontend:
+    name: Frontend lint, unit tests, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Audit dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Type-check frontend tests
+        working-directory: frontend
+        run: npx tsc -p src/tsconfig.spec.json --noEmit
+
+      - name: Test Vercel API proxy
+        working-directory: frontend
+        run: npm run test:proxy
+
+      - name: Run frontend unit and coverage tests
+        working-directory: frontend
+        run: npm run test:coverage -- --no-progress
+
+      - name: Build production frontend
+        working-directory: frontend
+        run: npm run build -- --configuration production
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e:
+    name: API and browser integration tests
+    needs: [api, frontend]
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     services:
       mongodb:
-        image: mongo:6
+        image: mongo:8
         ports:
           - 27017:27017
         options: >-
@@ -45,7 +137,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: |
             api/package-lock.json
@@ -55,20 +147,9 @@ jobs:
         working-directory: api
         run: npm ci
 
-      - name: Check API syntax
-        run: node --check api/app.js
-
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-
-      - name: Lint frontend
-        working-directory: frontend
-        run: npm run lint
-
-      - name: Build production frontend
-        working-directory: frontend
-        run: npm run build -- --configuration production
 
       - name: Install Playwright Chromium
         working-directory: frontend

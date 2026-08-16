@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
-import { TaskService } from 'src/app/task.service';
+import { TaskService } from '../../task.service';
 import { Router } from '@angular/router';
-import { List } from 'src/app/models/list.model';
+import { List } from '../../models/list.model';
 
 @Component({
+  standalone: false,
   selector: 'app-new-list',
   templateUrl: './new-list.component.html',
   styleUrls: ['./new-list.component.scss']

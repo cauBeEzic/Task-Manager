@@ -2,20 +2,31 @@
 
 const mongoose = require('mongoose');
 
-mongoose.Promise = global.Promise;
 const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/TaskManager';
-mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true }).then(() => {
-    console.log("Connected to MongoDB successfully :)");
-}).catch((e) => {
-    console.log("Error while attempting to connect to MongoDB");
-    console.log(e);
-});
+let connectionPromise;
 
-// To prevent deprectation warnings (from MongoDB native driver)
-mongoose.set('useCreateIndex', true);
-mongoose.set('useFindAndModify', false);
+const connectToDatabase = async () => {
+    if (mongoose.connection.readyState === 1) {
+        return mongoose;
+    }
 
+    if (!connectionPromise) {
+        connectionPromise = mongoose.connect(mongoUri, {
+            serverSelectionTimeoutMS: 10000
+        }).then(() => {
+            connectionPromise = undefined;
+            return mongoose;
+        }).catch((error) => {
+            connectionPromise = undefined;
+            throw error;
+        });
+    }
+
+    await connectionPromise;
+    return mongoose;
+};
 
 module.exports = {
-    mongoose
+    mongoose,
+    connectToDatabase
 };

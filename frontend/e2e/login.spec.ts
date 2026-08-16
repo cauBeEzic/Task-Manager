@@ -40,4 +40,11 @@ test('authenticates valid credentials', async ({ page, request }) => {
   expect(loginResponse.headers()['x-access-token']).toBeTruthy();
   await expect(page).toHaveURL(/\/lists$/);
   await expect(page.getByRole('heading', { name: 'Lists' })).toBeVisible();
+
+  const xsrfCookie = (await page.context().cookies())
+    .find(({ name }) => name === 'XSRF-TOKEN');
+  expect(xsrfCookie, 'Login should set a browser-readable CSRF cookie').toBeTruthy();
+  expect(xsrfCookie!.path).toBe('/');
+  await expect.poll(() => page.evaluate(() => document.cookie))
+    .toContain('XSRF-TOKEN=');
 });

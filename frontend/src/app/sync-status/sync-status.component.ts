@@ -4,6 +4,7 @@ import { SyncSummary } from '../models/pending-action.model';
 import { TaskService } from '../task.service';
 
 @Component({
+  standalone: false,
   selector: 'app-sync-status',
   templateUrl: './sync-status.component.html',
   styleUrls: ['./sync-status.component.scss']

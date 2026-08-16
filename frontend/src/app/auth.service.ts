@@ -23,7 +23,7 @@ export class AuthService {
 
   login(email: string, password: string) {
     return this.webService.login(email, password).pipe(
-      concatMap((res: HttpResponse<any>) => from(this.activateAuthenticatedUser(res)).pipe(map(() => res))),
+      concatMap((res) => from(this.activateAuthenticatedUser(res)).pipe(map(() => res))),
       shareReplay()
     )
   }
@@ -31,7 +31,7 @@ export class AuthService {
 
   signup(email: string, password: string) {
     return this.webService.signup(email, password).pipe(
-      concatMap((res: HttpResponse<any>) => from(this.activateAuthenticatedUser(res)).pipe(map(() => res))),
+      concatMap((res) => from(this.activateAuthenticatedUser(res)).pipe(map(() => res))),
       shareReplay()
     )
   }
@@ -68,18 +68,26 @@ export class AuthService {
       observe: 'response',
       withCredentials: true
     }).pipe(
-      tap((res: HttpResponse<any>) => {
-        this.setAccessToken(res.headers.get('x-access-token'));
+      tap((res) => {
+        this.setAccessTokenFromResponse(res);
       })
     )
   }
 
-  private async activateAuthenticatedUser(res: HttpResponse<any>): Promise<void> {
+  private async activateAuthenticatedUser(res: HttpResponse<{ _id?: string }>): Promise<void> {
     const userId = res.body?._id;
     if (!userId) {
       throw new Error('Authentication response did not include a user id');
     }
     await this.offlineDb.activateUser(userId);
-    this.setAccessToken(res.headers.get('x-access-token'));
+    this.setAccessTokenFromResponse(res);
+  }
+
+  private setAccessTokenFromResponse(res: HttpResponse<unknown>): void {
+    const accessToken = res.headers.get('x-access-token');
+    if (!accessToken) {
+      throw new Error('Authentication response did not include an access token');
+    }
+    this.setAccessToken(accessToken);
   }
 }
