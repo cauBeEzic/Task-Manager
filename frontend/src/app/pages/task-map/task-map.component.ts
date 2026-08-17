@@ -22,7 +22,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
   mapMessage = 'Select a task, then click the map to assign its location.';
 
   private map?: maplibregl.Map;
-  private mapLoaded = false;
+  mapLoaded = false;
   private readonly subscriptions = new Subscription();
 
   constructor(
@@ -51,6 +51,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    maplibregl.setWorkerUrl(new URL('maplibre-gl-worker.mjs', document.baseURI).href);
     this.map = new maplibregl.Map({
       container: 'task-map',
       style: 'https://tiles.openfreemap.org/styles/liberty',
@@ -73,6 +74,7 @@ export class TaskMapComponent implements OnInit, AfterViewInit, OnDestroy {
       this.mapLoaded = true;
       this.addMapLayers();
       this.updateTaskSource();
+      this.changeDetector.markForCheck();
     });
     this.map.on('click', event => {
       const interactiveFeatures = this.map?.queryRenderedFeatures(event.point, { layers: ['clusters', 'task-pins'] }) || [];
