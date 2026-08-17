@@ -4,6 +4,7 @@ const frontendUrl = process.env.E2E_BASE_URL || 'http://localhost:4200';
 
 export default defineConfig({
   testDir: './e2e',
+  workers: 3,
   use: {
     baseURL: frontendUrl,
     headless: true

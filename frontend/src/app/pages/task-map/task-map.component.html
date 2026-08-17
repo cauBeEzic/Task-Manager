@@ -73,7 +73,8 @@
         </span>
         Interactive map
       </div>
-      <div id="task-map" class="map-canvas" aria-label="Map showing task locations"></div>
+      <div id="task-map" class="map-canvas" aria-label="Map showing task locations"
+        [attr.aria-busy]="!mapLoaded"></div>
     </section>
   </div>
 </div>
